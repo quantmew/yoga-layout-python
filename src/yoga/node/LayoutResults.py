@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..YGEnums import YGDimension, YGDirection, YGEdge
+from ..numeric.FloatMath import float32
 from ..numeric.FloatOptional import FloatOptional
 from ..numeric.Comparison import inexactEquals, isUndefined
 from .CachedMeasurement import CachedMeasurement
@@ -98,7 +99,7 @@ class LayoutResults:
         return self.dimensions_[axis]
 
     def setDimension(self, axis: YGDimension, dimension: float) -> None:
-        self.dimensions_[axis] = dimension
+        self.dimensions_[axis] = float32(dimension)
 
     def measuredDimension(self, axis: YGDimension) -> float:
         return self.measuredDimensions_[axis]
@@ -107,34 +108,34 @@ class LayoutResults:
         return self.rawDimensions_[axis]
 
     def setMeasuredDimension(self, axis: YGDimension, dimension: float) -> None:
-        self.measuredDimensions_[axis] = dimension
+        self.measuredDimensions_[axis] = float32(dimension)
 
     def setRawDimension(self, axis: YGDimension, dimension: float) -> None:
-        self.rawDimensions_[axis] = dimension
+        self.rawDimensions_[axis] = float32(dimension)
 
     def position(self, edge: YGEdge) -> float:
         return self.position_[edge]
 
     def setPosition(self, edge: YGEdge, dimension: float) -> None:
-        self.position_[edge] = dimension
+        self.position_[edge] = float32(dimension)
 
     def margin(self, edge: YGEdge) -> float:
         return self.margin_[edge]
 
     def setMargin(self, edge: YGEdge, dimension: float) -> None:
-        self.margin_[edge] = dimension
+        self.margin_[edge] = float32(dimension)
 
     def border(self, edge: YGEdge) -> float:
         return self.border_[edge]
 
     def setBorder(self, edge: YGEdge, dimension: float) -> None:
-        self.border_[edge] = dimension
+        self.border_[edge] = float32(dimension)
 
     def padding(self, edge: YGEdge) -> float:
         return self.padding_[edge]
 
     def setPadding(self, edge: YGEdge, dimension: float) -> None:
-        self.padding_[edge] = dimension
+        self.padding_[edge] = float32(dimension)
 
     def __eq__(self, layout: object) -> bool:
         if not isinstance(layout, LayoutResults):

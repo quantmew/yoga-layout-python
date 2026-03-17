@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from yoga import (  # noqa: E402
@@ -36,6 +38,10 @@ def _measure_fractial(_node, width, _widthMode, height, _heightMode):
     return YGSize(width=0.5, height=0.5)
 
 
+def assert_float_eq(expected, actual):
+    assert actual == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
 def test_rounding_feature_with_custom_measure_func_floor():
     config = YGConfigNew()
     root = YGNodeNewWithConfig(config)
@@ -46,28 +52,28 @@ def test_rounding_feature_with_custom_measure_func_floor():
 
     YGConfigSetPointScaleFactor(config, 0.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionRTL)
-    assert YGNodeLayoutGetWidth(child) == 10.2
-    assert YGNodeLayoutGetHeight(child) == 10.2
+    assert_float_eq(10.2, YGNodeLayoutGetWidth(child))
+    assert_float_eq(10.2, YGNodeLayoutGetHeight(child))
 
     YGConfigSetPointScaleFactor(config, 1.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionLTR)
-    assert YGNodeLayoutGetWidth(child) == 11
-    assert YGNodeLayoutGetHeight(child) == 11
+    assert_float_eq(11, YGNodeLayoutGetWidth(child))
+    assert_float_eq(11, YGNodeLayoutGetHeight(child))
 
     YGConfigSetPointScaleFactor(config, 2.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionRTL)
-    assert YGNodeLayoutGetWidth(child) == 10.5
-    assert YGNodeLayoutGetHeight(child) == 10.5
+    assert_float_eq(10.5, YGNodeLayoutGetWidth(child))
+    assert_float_eq(10.5, YGNodeLayoutGetHeight(child))
 
     YGConfigSetPointScaleFactor(config, 4.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionLTR)
-    assert YGNodeLayoutGetWidth(child) == 10.25
-    assert YGNodeLayoutGetHeight(child) == 10.25
+    assert_float_eq(10.25, YGNodeLayoutGetWidth(child))
+    assert_float_eq(10.25, YGNodeLayoutGetHeight(child))
 
     YGConfigSetPointScaleFactor(config, 1.0 / 3.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionRTL)
-    assert YGNodeLayoutGetWidth(child) == 12.0
-    assert YGNodeLayoutGetHeight(child) == 12.0
+    assert_float_eq(12.0, YGNodeLayoutGetWidth(child))
+    assert_float_eq(12.0, YGNodeLayoutGetHeight(child))
 
     YGNodeFreeRecursive(root)
     YGConfigFree(config)
@@ -83,8 +89,8 @@ def test_rounding_feature_with_custom_measure_func_ceil():
 
     YGConfigSetPointScaleFactor(config, 1.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionLTR)
-    assert YGNodeLayoutGetWidth(child) == 11
-    assert YGNodeLayoutGetHeight(child) == 11
+    assert_float_eq(11, YGNodeLayoutGetWidth(child))
+    assert_float_eq(11, YGNodeLayoutGetHeight(child))
 
     YGNodeFreeRecursive(root)
     YGConfigFree(config)
@@ -104,9 +110,9 @@ def test_rounding_feature_with_custom_measure_and_fractial_matching_scale():
     YGConfigSetPointScaleFactor(config, 2.0)
     YGNodeCalculateLayout(root, float("nan"), float("nan"), YGDirection.YGDirectionLTR)
 
-    assert YGNodeLayoutGetWidth(child) == 0.5
-    assert YGNodeLayoutGetHeight(child) == 0.5
-    assert YGNodeLayoutGetLeft(child) == 73.5
+    assert_float_eq(0.5, YGNodeLayoutGetWidth(child))
+    assert_float_eq(0.5, YGNodeLayoutGetHeight(child))
+    assert_float_eq(73.5, YGNodeLayoutGetLeft(child))
 
     YGNodeFreeRecursive(root)
     YGConfigFree(config)

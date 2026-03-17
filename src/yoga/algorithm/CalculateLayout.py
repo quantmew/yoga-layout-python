@@ -46,6 +46,7 @@ from ..event.event import (
 )
 from ..node.LayoutResults import LayoutResults
 from ..node.Node import Node
+from ..numeric.FloatMath import float32, floatDivision
 from ..numeric.Comparison import inexactEquals, isDefined, isUndefined, maxOrDefined, minOrDefined
 from ..numeric.FloatOptional import FloatOptional, maxOrDefined as maxOrDefinedFloatOptional
 
@@ -393,7 +394,7 @@ def computeFlexBasisForChildren(
     depth: int,
     generationCount: int,
 ) -> float:
-    totalOuterFlexBasis = 0.0
+    totalOuterFlexBasis = float32(0.0)
     singleFlexChild = None
     children = list(node.getLayoutChildren())
     sizingModeMainDim = widthSizingMode if isRow(mainAxis) else heightSizingMode
@@ -434,7 +435,13 @@ def computeFlexBasisForChildren(
                 depth,
                 generationCount,
             )
-        totalOuterFlexBasis += child.getLayout().computedFlexBasis.unwrap() + child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+        totalOuterFlexBasis = float32(
+            totalOuterFlexBasis
+            + float32(
+                child.getLayout().computedFlexBasis.unwrap()
+                + child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+            )
+        )
     return totalOuterFlexBasis
 
 
@@ -447,33 +454,69 @@ def distributeFreeSpaceFirstPass(
     availableInnerMainDim: float,
     availableInnerWidth: float,
 ) -> None:
-    deltaFreeSpace = 0.0
+    deltaFreeSpace = float32(0.0)
     for currentLineChild in flexLine.itemsInFlow:
-        childFlexBasis = boundAxisWithinMinAndMax(
+        childFlexBasis = float32(
+            boundAxisWithinMinAndMax(
             currentLineChild,
             direction,
             mainAxis,
             currentLineChild.getLayout().computedFlexBasis,
             mainAxisOwnerSize,
             ownerWidth,
-        ).unwrap()
+            ).unwrap()
+        )
         if flexLine.layout.remainingFreeSpace < 0:
-            flexShrinkScaledFactor = -currentLineChild.resolveFlexShrink() * childFlexBasis
+            flexShrinkScaledFactor = float32(
+                -currentLineChild.resolveFlexShrink() * childFlexBasis
+            )
             if flexShrinkScaledFactor == flexShrinkScaledFactor and flexShrinkScaledFactor != 0:
-                baseMainSize = childFlexBasis + flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexShrinkScaledFactors * flexShrinkScaledFactor
+                shrinkRatio = float32(
+                    floatDivision(
+                        flexLine.layout.remainingFreeSpace,
+                        flexLine.layout.totalFlexShrinkScaledFactors,
+                    )
+                )
+                baseMainSize = float32(
+                    childFlexBasis
+                    + float32(shrinkRatio * flexShrinkScaledFactor)
+                )
                 boundMainSize = boundAxis(currentLineChild, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth)
                 if baseMainSize == baseMainSize and boundMainSize == boundMainSize and baseMainSize != boundMainSize:
-                    deltaFreeSpace += boundMainSize - childFlexBasis
-                    flexLine.layout.totalFlexShrinkScaledFactors -= -currentLineChild.resolveFlexShrink() * currentLineChild.getLayout().computedFlexBasis.unwrap()
+                    deltaFreeSpace = float32(
+                        deltaFreeSpace + float32(boundMainSize - childFlexBasis)
+                    )
+                    flexLine.layout.totalFlexShrinkScaledFactors = float32(
+                        flexLine.layout.totalFlexShrinkScaledFactors
+                        - float32(
+                            -currentLineChild.resolveFlexShrink()
+                            * currentLineChild.getLayout().computedFlexBasis.unwrap()
+                        )
+                    )
         elif flexLine.layout.remainingFreeSpace == flexLine.layout.remainingFreeSpace and flexLine.layout.remainingFreeSpace > 0:
             flexGrowFactor = currentLineChild.resolveFlexGrow()
             if flexGrowFactor == flexGrowFactor and flexGrowFactor != 0:
-                baseMainSize = childFlexBasis + flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexGrowFactors * flexGrowFactor
+                growRatio = float32(
+                    floatDivision(
+                        flexLine.layout.remainingFreeSpace,
+                        flexLine.layout.totalFlexGrowFactors,
+                    )
+                )
+                baseMainSize = float32(
+                    childFlexBasis
+                    + float32(growRatio * flexGrowFactor)
+                )
                 boundMainSize = boundAxis(currentLineChild, mainAxis, direction, baseMainSize, availableInnerMainDim, availableInnerWidth)
                 if baseMainSize == baseMainSize and boundMainSize == boundMainSize and baseMainSize != boundMainSize:
-                    deltaFreeSpace += boundMainSize - childFlexBasis
-                    flexLine.layout.totalFlexGrowFactors -= flexGrowFactor
-    flexLine.layout.remainingFreeSpace -= deltaFreeSpace
+                    deltaFreeSpace = float32(
+                        deltaFreeSpace + float32(boundMainSize - childFlexBasis)
+                    )
+                    flexLine.layout.totalFlexGrowFactors = float32(
+                        flexLine.layout.totalFlexGrowFactors - flexGrowFactor
+                    )
+    flexLine.layout.remainingFreeSpace = float32(
+        flexLine.layout.remainingFreeSpace - deltaFreeSpace
+    )
 
 
 def distributeFreeSpaceSecondPass(
@@ -495,39 +538,74 @@ def distributeFreeSpaceSecondPass(
     depth: int,
     generationCount: int,
 ) -> float:
-    deltaFreeSpace = 0.0
+    deltaFreeSpace = float32(0.0)
     isMainAxisRow = isRow(mainAxis)
     isNodeFlexWrap = node.style().flexWrap() != getattr(node.style().flexWrap().__class__, "YGWrapNoWrap", node.style().flexWrap())
     for currentLineChild in flexLine.itemsInFlow:
-        childFlexBasis = boundAxisWithinMinAndMax(
+        childFlexBasis = float32(
+            boundAxisWithinMinAndMax(
             currentLineChild,
             direction,
             mainAxis,
             currentLineChild.getLayout().computedFlexBasis,
             mainAxisOwnerSize,
             ownerWidth,
-        ).unwrap()
+            ).unwrap()
+        )
         updatedMainSize = childFlexBasis
         if flexLine.layout.remainingFreeSpace == flexLine.layout.remainingFreeSpace and flexLine.layout.remainingFreeSpace < 0:
-            flexShrinkScaledFactor = -currentLineChild.resolveFlexShrink() * childFlexBasis
+            flexShrinkScaledFactor = float32(
+                -currentLineChild.resolveFlexShrink() * childFlexBasis
+            )
             if flexShrinkScaledFactor != 0:
                 if flexLine.layout.totalFlexShrinkScaledFactors == 0:
-                    childSize = childFlexBasis + flexShrinkScaledFactor
+                    childSize = float32(childFlexBasis + flexShrinkScaledFactor)
                 else:
-                    childSize = childFlexBasis + (flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexShrinkScaledFactors) * flexShrinkScaledFactor
-                updatedMainSize = boundAxis(currentLineChild, mainAxis, direction, childSize, availableInnerMainDim, availableInnerWidth)
+                    shrinkRatio = float32(
+                        floatDivision(
+                            flexLine.layout.remainingFreeSpace,
+                            flexLine.layout.totalFlexShrinkScaledFactors,
+                        )
+                    )
+                    childSize = float32(
+                        childFlexBasis
+                        + float32(shrinkRatio * flexShrinkScaledFactor)
+                    )
+                updatedMainSize = float32(
+                    boundAxis(
+                        currentLineChild,
+                        mainAxis,
+                        direction,
+                        childSize,
+                        availableInnerMainDim,
+                        availableInnerWidth,
+                    )
+                )
         elif flexLine.layout.remainingFreeSpace == flexLine.layout.remainingFreeSpace and flexLine.layout.remainingFreeSpace > 0:
             flexGrowFactor = currentLineChild.resolveFlexGrow()
             if flexGrowFactor == flexGrowFactor and flexGrowFactor != 0:
-                updatedMainSize = boundAxis(
-                    currentLineChild,
-                    mainAxis,
-                    direction,
-                    childFlexBasis + flexLine.layout.remainingFreeSpace / flexLine.layout.totalFlexGrowFactors * flexGrowFactor,
-                    availableInnerMainDim,
-                    availableInnerWidth,
+                growRatio = float32(
+                    floatDivision(
+                        flexLine.layout.remainingFreeSpace,
+                        flexLine.layout.totalFlexGrowFactors,
+                    )
                 )
-        deltaFreeSpace += updatedMainSize - childFlexBasis
+                updatedMainSize = float32(
+                    boundAxis(
+                        currentLineChild,
+                        mainAxis,
+                        direction,
+                        float32(
+                            childFlexBasis
+                            + float32(growRatio * flexGrowFactor)
+                        ),
+                        availableInnerMainDim,
+                        availableInnerWidth,
+                    )
+                )
+        deltaFreeSpace = float32(
+            deltaFreeSpace + float32(updatedMainSize - childFlexBasis)
+        )
         marginMain = currentLineChild.style().computeMarginForAxis(mainAxis, availableInnerWidth)
         marginCross = currentLineChild.style().computeMarginForAxis(crossAxis, availableInnerWidth)
         childCrossSize = float("nan")
@@ -660,7 +738,9 @@ def resolveFlexibleLength(
         depth,
         generationCount,
     )
-    flexLine.layout.remainingFreeSpace = originalFreeSpace - distributedFreeSpace
+    flexLine.layout.remainingFreeSpace = float32(
+        originalFreeSpace - distributedFreeSpace
+    )
 
 
 def justifyMainAxis(
@@ -711,10 +791,16 @@ def justifyMainAxis(
             if len(flexLine.itemsInFlow) > 1:
                 betweenMainDim += flexLine.layout.remainingFreeSpace / float(len(flexLine.itemsInFlow) - 1)
         elif justifyContent == YGJustify.YGJustifySpaceEvenly:
-            leadingMainDim = flexLine.layout.remainingFreeSpace / float(len(flexLine.itemsInFlow) + 1)
+            leadingMainDim = floatDivision(
+                flexLine.layout.remainingFreeSpace,
+                float(len(flexLine.itemsInFlow) + 1),
+            )
             betweenMainDim += leadingMainDim
         elif justifyContent == YGJustify.YGJustifySpaceAround:
-            leadingMainDim = 0.5 * flexLine.layout.remainingFreeSpace / float(len(flexLine.itemsInFlow))
+            leadingMainDim = 0.5 * floatDivision(
+                flexLine.layout.remainingFreeSpace,
+                float(len(flexLine.itemsInFlow)),
+            )
             betweenMainDim += leadingMainDim * 2
     flexLine.layout.mainDim = leadingPaddingAndBorderMain + leadingMainDim
     flexLine.layout.crossDim = 0.0
@@ -736,7 +822,11 @@ def justifyMainAxis(
             flexLine.layout.mainDim += flexLine.layout.remainingFreeSpace / float(flexLine.numberOfAutoMargins)
         canSkipFlex = (not performLayout) and sizingModeCrossDim == SizingMode.StretchFit
         if canSkipFlex:
-            flexLine.layout.mainDim += child.style().computeMarginForAxis(mainAxis, availableInnerWidth) + childLayout.computedFlexBasis.unwrap()
+            flexLine.layout.mainDim = float32(
+                flexLine.layout.mainDim
+                + child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+                + childLayout.computedFlexBasis.unwrap()
+            )
             flexLine.layout.crossDim = availableInnerCrossDim
         else:
             flexLine.layout.mainDim += child.dimensionWithMargin(mainAxis, availableInnerWidth)
@@ -946,7 +1036,13 @@ def calculateLayoutImpl(
         generationCount,
     )
     if childCount > 1:
-        totalMainDim += node.style().computeGapForAxis(mainAxis, availableInnerMainDim) * float(childCount - 1)
+        totalMainDim = float32(
+            totalMainDim
+            + float32(
+                node.style().computeGapForAxis(mainAxis, availableInnerMainDim)
+                * float(childCount - 1)
+            )
+        )
     mainAxisOverflows = sizingModeMainDim != SizingMode.MaxContent and availableInnerMainDim == availableInnerMainDim and totalMainDim > availableInnerMainDim
     if isNodeFlexWrap and mainAxisOverflows and sizingModeMainDim == SizingMode.FitContent:
         sizingModeMainDim = SizingMode.StretchFit
@@ -968,8 +1064,6 @@ def calculateLayoutImpl(
             startIndex,
             lineCount,
         )
-        if not flexLine.itemsInFlow:
-            break
         canSkipFlex = (not performLayout) and sizingModeCrossDim == SizingMode.StretchFit
         sizeBasedOnContent = False
         if sizingModeMainDim != SizingMode.StretchFit:
@@ -993,9 +1087,11 @@ def calculateLayoutImpl(
                     availableInnerMainDim = flexLine.sizeConsumed
                 sizeBasedOnContent = not useLegacyStretchBehaviour
         if (not sizeBasedOnContent) and availableInnerMainDim == availableInnerMainDim:
-            flexLine.layout.remainingFreeSpace = availableInnerMainDim - flexLine.sizeConsumed
+            flexLine.layout.remainingFreeSpace = float32(
+                availableInnerMainDim - flexLine.sizeConsumed
+            )
         elif flexLine.sizeConsumed < 0:
-            flexLine.layout.remainingFreeSpace = -flexLine.sizeConsumed
+            flexLine.layout.remainingFreeSpace = float32(-flexLine.sizeConsumed)
         if not canSkipFlex:
             resolveFlexibleLength(
                 node,
@@ -1016,7 +1112,9 @@ def calculateLayoutImpl(
                 depth,
                 generationCount,
             )
-        node.setLayoutHadOverflow(node.getLayout().hadOverflow() or (flexLine.layout.remainingFreeSpace < 0))
+        node.setLayoutHadOverflow(
+            node.getLayout().hadOverflow() or (flexLine.layout.remainingFreeSpace < 0)
+        )
         justifyMainAxis(
             node,
             flexLine,
@@ -1195,10 +1293,16 @@ def calculateLayoutImpl(
         elif alignContent == YGAlign.YGAlignCenter:
             currentLead += remainingAlignContentDim / 2
         elif alignContent == YGAlign.YGAlignStretch:
-            extraSpacePerLine = remainingAlignContentDim / float(lineCount)
+            extraSpacePerLine = floatDivision(
+                remainingAlignContentDim, float(lineCount)
+            )
         elif alignContent == YGAlign.YGAlignSpaceAround:
-            currentLead += remainingAlignContentDim / (2 * float(lineCount))
-            leadPerLine = remainingAlignContentDim / float(lineCount)
+            currentLead += floatDivision(
+                remainingAlignContentDim, 2 * float(lineCount)
+            )
+            leadPerLine = floatDivision(
+                remainingAlignContentDim, float(lineCount)
+            )
         elif alignContent == YGAlign.YGAlignSpaceEvenly:
             currentLead += remainingAlignContentDim / float(lineCount + 1)
             leadPerLine = remainingAlignContentDim / float(lineCount + 1)

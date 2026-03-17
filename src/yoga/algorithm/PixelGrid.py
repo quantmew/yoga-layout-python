@@ -7,6 +7,8 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
+import math
+
 from ..numeric.Comparison import inexactEquals, isUndefined
 from ..YGEnums import YGDimension, YGEdge, YGNodeType
 from ..YGPixelGrid import YGRoundValueToPixelGrid as roundValueToPixelGrid
@@ -28,7 +30,11 @@ def roundLayoutResultsToPixelGrid(node, absoluteLeft: float, absoluteTop: float)
         node.setLayoutPosition(roundValueToPixelGrid(nodeTop, pointScaleFactor, False, textRounding), YGEdge.YGEdgeTop)
         if not isUndefined(nodeWidth):
             scaledNodeWidth = nodeWidth * pointScaleFactor
-            hasFractionalWidth = not inexactEquals(round(scaledNodeWidth), scaledNodeWidth)
+            hasFractionalWidth = (
+                not inexactEquals(round(scaledNodeWidth), scaledNodeWidth)
+                if math.isfinite(scaledNodeWidth)
+                else False
+            )
             node.getLayout().setDimension(
                 YGDimension.YGDimensionWidth,
                 roundValueToPixelGrid(absoluteNodeRight, pointScaleFactor, textRounding and hasFractionalWidth, textRounding and not hasFractionalWidth)
@@ -36,7 +42,11 @@ def roundLayoutResultsToPixelGrid(node, absoluteLeft: float, absoluteTop: float)
             )
         if not isUndefined(nodeHeight):
             scaledNodeHeight = nodeHeight * pointScaleFactor
-            hasFractionalHeight = not inexactEquals(round(scaledNodeHeight), scaledNodeHeight)
+            hasFractionalHeight = (
+                not inexactEquals(round(scaledNodeHeight), scaledNodeHeight)
+                if math.isfinite(scaledNodeHeight)
+                else False
+            )
             node.getLayout().setDimension(
                 YGDimension.YGDimensionHeight,
                 roundValueToPixelGrid(absoluteNodeBottom, pointScaleFactor, textRounding and hasFractionalHeight, textRounding and not hasFractionalHeight)

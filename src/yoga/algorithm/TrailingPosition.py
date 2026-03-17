@@ -8,12 +8,19 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 from ..algorithm.FlexDirection import dimension, flexEndEdge, flexStartEdge
+from ..numeric.FloatMath import float32
 from ..YGEnums import YGFlexDirection
 from ..node.Node import Node
 
 
 def getPositionOfOppositeEdge(position: float, axis: YGFlexDirection, containingNode: Node, node: Node) -> float:
-    return containingNode.getLayout().measuredDimension(dimension(axis)) - node.getLayout().measuredDimension(dimension(axis)) - position
+    return float32(
+        float32(
+            float32(containingNode.getLayout().measuredDimension(dimension(axis)))
+            - float32(node.getLayout().measuredDimension(dimension(axis)))
+        )
+        - float32(position)
+    )
 
 
 def setChildTrailingPosition(node: Node, child: Node, axis: YGFlexDirection) -> None:

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from ..YGEnums import YGUnit
 from ..YGValue import YGValue
+from ..numeric.FloatMath import float32
 from ..numeric.FloatOptional import FloatOptional, inexactEquals as inexactEqualsFloatOptional
 from ..numeric.Comparison import isUndefined, isinf
 
@@ -95,7 +96,12 @@ class StyleSizeLength:
         if self.unit_ == YGUnit.YGUnitPoint:
             return self.value_
         if self.unit_ == YGUnit.YGUnitPercent:
-            return FloatOptional(self.value_.unwrap() * referenceLength * 0.01)
+            return FloatOptional(
+                float32(
+                    float32(float32(self.value_.unwrap()) * float32(referenceLength))
+                    * float32(0.01)
+                )
+            )
         return FloatOptional()
 
     def asYGValue(self) -> YGValue:

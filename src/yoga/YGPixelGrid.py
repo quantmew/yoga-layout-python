@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 import math
+from .numeric.FloatMath import float32
 
 
 def YGRoundValueToPixelGrid(
@@ -16,7 +17,7 @@ def YGRoundValueToPixelGrid(
     if pointScaleFactor == 0:
         return value
     scaledValue = value * pointScaleFactor
-    fractial = math.fmod(scaledValue, 1.0)
+    fractial = math.fmod(scaledValue, 1.0) if math.isfinite(scaledValue) else float("nan")
     if fractial < 0:
         fractial += 1.0
     if math.isclose(fractial, 0.0, abs_tol=1e-4):
@@ -34,4 +35,8 @@ def YGRoundValueToPixelGrid(
             and (fractial > 0.5 or math.isclose(fractial, 0.5, abs_tol=1e-4))
             else 0.0
         )
-    return float("nan") if math.isnan(scaledValue) or math.isnan(pointScaleFactor) else scaledValue / pointScaleFactor
+    return (
+        float("nan")
+        if math.isnan(scaledValue) or math.isnan(pointScaleFactor)
+        else float32(scaledValue / pointScaleFactor)
+    )
