@@ -127,13 +127,17 @@ class StyleValuePool:
         handle._set_type(type_)
 
         if self._is_integer_packable(value):
-            handle.clearValueIsIndexed()
+            if handle.isValueIndexed():
+                handle.clearValueIsIndexed()
             handle._set_value(self._pack_inline_integer(value))
         else:
-            # Need to use indexed storage
             packed = struct.pack("<f", value)
             int_value = struct.unpack("<I", packed)[0]
-            new_index = self._buffer.push(int_value)
+            new_index = (
+                self._buffer.replace(handle._value(), int_value)
+                if handle.isValueIndexed()
+                else self._buffer.push(int_value)
+            )
             handle._set_value(new_index)
             handle.setValueIsIndexed()
 
@@ -142,8 +146,11 @@ class StyleValuePool:
     ) -> None:
         """Store a keyword in the handle."""
         handle._set_type(StyleValueHandle.Type.Keyword)
-        handle.clearValueIsIndexed()
-        handle._set_value(keyword)
+        if handle.isValueIndexed():
+            new_index = self._buffer.replace(handle._value(), keyword)
+            handle._set_value(new_index)
+        else:
+            handle._set_value(keyword)
 
     def _get_float_value(self, handle: StyleValueHandle) -> float:
         """Extract a float value from the handle."""

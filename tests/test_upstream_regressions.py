@@ -18,6 +18,7 @@ from yoga import (  # noqa: E402
     YGNodeLayoutGetRight,
     YGNodeLayoutGetWidth,
     YGNodeNew,
+    YGNodeStyleSetFlex,
     YGNodeSetMeasureFunc,
     YGNodeStyleSetDirection,
     YGNodeStyleSetDisplay,
@@ -28,6 +29,10 @@ from yoga import (  # noqa: E402
 from yoga.algorithm.SizingMode import SizingMode  # noqa: E402
 from yoga.event.event import Event  # noqa: E402
 from yoga.node.CachedMeasurement import CachedMeasurement  # noqa: E402
+from yoga.numeric.FloatOptional import FloatOptional  # noqa: E402
+from yoga.style.Style import Style  # noqa: E402
+from yoga.style.StyleLength import StyleLength  # noqa: E402
+from yoga.style.StyleSizeLength import StyleSizeLength  # noqa: E402
 
 
 def test_measure_invalid_dimensions_are_clamped_like_upstream():
@@ -108,3 +113,29 @@ def test_node_allocation_and_deallocation_events_follow_upstream_paths():
         Event.NodeDeallocation,
         Event.NodeDeallocation,
     ]
+
+
+def test_style_equality_normalizes_to_upstream_float_precision():
+    lhs = Style()
+    rhs = Style()
+
+    lhs.setFlex(FloatOptional(1.0))
+    rhs.setFlex(FloatOptional(1.0 + 1e-9))
+    lhs.setFlexBasis(StyleSizeLength.points(3.0))
+    rhs.setFlexBasis(StyleSizeLength.points(3.0 + 1e-9))
+    lhs.setMargin(YGEdge.YGEdgeLeft, StyleLength.points(7.0))
+    rhs.setMargin(YGEdge.YGEdgeLeft, StyleLength.points(7.0 + 1e-9))
+
+    assert lhs == rhs
+
+
+def test_setting_float32_equivalent_style_value_does_not_dirty_node():
+    node = YGNodeNew()
+
+    node.setDirty(False)
+    YGNodeStyleSetFlex(node, 1.0)
+    assert node.isDirty()
+
+    node.setDirty(False)
+    YGNodeStyleSetFlex(node, 1.0 + 1e-9)
+    assert not node.isDirty()

@@ -2,8 +2,6 @@
 
 `yoga-layout-python` is a pure Python port of Meta's Yoga layout engine.
 
-This repository vendors the upstream Yoga source tree in `yoga-layout/` and mirrors its public C API into Python modules under `src/yoga/`.
-
 ## Current Status
 
 - Public enums, value/config primitives, and the core layout algorithm are implemented in Python.

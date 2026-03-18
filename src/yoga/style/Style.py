@@ -31,15 +31,110 @@ from ..YGEnums import (
     YGWrap,
 )
 from ..debug.AssertFatal import fatalWithMessage
+from ..numeric.FloatMath import float32
 from ..numeric.FloatOptional import FloatOptional
 from ..numeric.Comparison import maxOrDefined
 from .GridLine import GridLine
 from .GridTrack import GridTrackList, GridTrackSize
 from .StyleLength import StyleLength
 from .StyleSizeLength import StyleSizeLength
+from .StyleValueHandle import StyleValueHandle
+from .StyleValuePool import StyleValuePool
 
 
-@dataclass
+def _normalize_float_optional(value: FloatOptional) -> FloatOptional:
+    return FloatOptional() if value.isUndefined() else FloatOptional(float32(value.unwrap()))
+
+
+def _normalize_style_length(value: StyleLength) -> StyleLength:
+    if value.isUndefined():
+        return StyleLength.undefined()
+    if value.isAuto():
+        return StyleLength.ofAuto()
+    normalized_value = float32(value.value().unwrap())
+    return StyleLength.points(normalized_value) if value.isPoints() else StyleLength.percent(normalized_value)
+
+
+def _normalize_style_size_length(value: StyleSizeLength) -> StyleSizeLength:
+    if value.isUndefined():
+        return StyleSizeLength.undefined()
+    if value.isAuto():
+        return StyleSizeLength.ofAuto()
+    if value.isMaxContent():
+        return StyleSizeLength.ofMaxContent()
+    if value.isFitContent():
+        return StyleSizeLength.ofFitContent()
+    if value.isStretch():
+        normalized_value = value.value()
+        return (
+            StyleSizeLength.ofStretch()
+            if normalized_value.isUndefined()
+            else StyleSizeLength.stretch(float32(normalized_value.unwrap()))
+        )
+    normalized_value = float32(value.value().unwrap())
+    return (
+        StyleSizeLength.points(normalized_value)
+        if value.isPoints()
+        else StyleSizeLength.percent(normalized_value)
+    )
+
+
+def normalize_style_value(value):
+    if isinstance(value, FloatOptional):
+        return _normalize_float_optional(value)
+    if isinstance(value, StyleLength):
+        return _normalize_style_length(value)
+    if isinstance(value, StyleSizeLength):
+        return _normalize_style_size_length(value)
+    return value
+
+
+def _new_handles(count: int) -> list[StyleValueHandle]:
+    return [StyleValueHandle() for _ in range(count)]
+
+
+def _new_auto_dimensions() -> list[StyleValueHandle]:
+    return [StyleValueHandle.ofAuto() for _ in YGDimension]
+
+
+def _numbers_equal(
+    lhs_handle: StyleValueHandle,
+    lhs_pool: StyleValuePool,
+    rhs_handle: StyleValueHandle,
+    rhs_pool: StyleValuePool,
+) -> bool:
+    return (lhs_handle.isUndefined() and rhs_handle.isUndefined()) or (
+        lhs_pool.get_number(lhs_handle) == rhs_pool.get_number(rhs_handle)
+    )
+
+
+def _length_handles_equal(
+    lhs_handle: StyleValueHandle,
+    lhs_pool: StyleValuePool,
+    rhs_handle: StyleValueHandle,
+    rhs_pool: StyleValuePool,
+) -> bool:
+    return (lhs_handle.isUndefined() and rhs_handle.isUndefined()) or (
+        lhs_pool.get_length(lhs_handle) == rhs_pool.get_length(rhs_handle)
+    )
+
+
+def _size_handles_equal(
+    lhs_handle: StyleValueHandle,
+    lhs_pool: StyleValuePool,
+    rhs_handle: StyleValueHandle,
+    rhs_pool: StyleValuePool,
+) -> bool:
+    return (lhs_handle.isUndefined() and rhs_handle.isUndefined()) or (
+        lhs_pool.get_size(lhs_handle) == rhs_pool.get_size(rhs_handle)
+    )
+
+
+def _handle_arrays_equal(lhs: list[StyleValueHandle], rhs: list[StyleValueHandle], comparator) -> bool:
+    return len(lhs) == len(rhs) and all(comparator(lhs_item, rhs_item) for lhs_item, rhs_item in zip(lhs, rhs))
+
+
+@dataclass(eq=False)
 class Style:
     Length = StyleLength
     SizeLength = StyleSizeLength
@@ -61,38 +156,19 @@ class Style:
     overflow_: YGOverflow = YGOverflow.YGOverflowVisible
     display_: YGDisplay = YGDisplay.YGDisplayFlex
     boxSizing_: YGBoxSizing = YGBoxSizing.YGBoxSizingBorderBox
-    flex_: FloatOptional = FloatOptional()
-    flexGrow_: FloatOptional = FloatOptional()
-    flexShrink_: FloatOptional = FloatOptional()
-    flexBasis_: StyleSizeLength = StyleSizeLength.ofAuto()
-    margin_: dict[YGEdge, StyleLength] = field(
-        default_factory=lambda: {edge: StyleLength.undefined() for edge in YGEdge}
-    )
-    position_: dict[YGEdge, StyleLength] = field(
-        default_factory=lambda: {edge: StyleLength.undefined() for edge in YGEdge}
-    )
-    padding_: dict[YGEdge, StyleLength] = field(
-        default_factory=lambda: {edge: StyleLength.undefined() for edge in YGEdge}
-    )
-    border_: dict[YGEdge, StyleLength] = field(
-        default_factory=lambda: {edge: StyleLength.undefined() for edge in YGEdge}
-    )
-    gap_: dict[YGGutter, StyleLength] = field(
-        default_factory=lambda: {gutter: StyleLength.undefined() for gutter in YGGutter}
-    )
-    dimensions_: dict[YGDimension, StyleSizeLength] = field(
-        default_factory=lambda: {
-            YGDimension.YGDimensionWidth: StyleSizeLength.ofAuto(),
-            YGDimension.YGDimensionHeight: StyleSizeLength.ofAuto(),
-        }
-    )
-    minDimensions_: dict[YGDimension, StyleSizeLength] = field(
-        default_factory=lambda: {dimension: StyleSizeLength.undefined() for dimension in YGDimension}
-    )
-    maxDimensions_: dict[YGDimension, StyleSizeLength] = field(
-        default_factory=lambda: {dimension: StyleSizeLength.undefined() for dimension in YGDimension}
-    )
-    aspectRatio_: FloatOptional = FloatOptional()
+    flex_: StyleValueHandle = field(default_factory=StyleValueHandle)
+    flexGrow_: StyleValueHandle = field(default_factory=StyleValueHandle)
+    flexShrink_: StyleValueHandle = field(default_factory=StyleValueHandle)
+    flexBasis_: StyleValueHandle = field(default_factory=StyleValueHandle.ofAuto)
+    margin_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGEdge)))
+    position_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGEdge)))
+    padding_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGEdge)))
+    border_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGEdge)))
+    gap_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGGutter)))
+    dimensions_: list[StyleValueHandle] = field(default_factory=_new_auto_dimensions)
+    minDimensions_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGDimension)))
+    maxDimensions_: list[StyleValueHandle] = field(default_factory=lambda: _new_handles(len(YGDimension)))
+    aspectRatio_: StyleValueHandle = field(default_factory=StyleValueHandle)
     gridTemplateColumns_: GridTrackList = field(default_factory=list)
     gridTemplateRows_: GridTrackList = field(default_factory=list)
     gridAutoColumns_: GridTrackList = field(default_factory=list)
@@ -101,6 +177,7 @@ class Style:
     gridColumnEnd_: GridLine = field(default_factory=GridLine.auto_)
     gridRowStart_: GridLine = field(default_factory=GridLine.auto_)
     gridRowEnd_: GridLine = field(default_factory=GridLine.auto_)
+    pool_: StyleValuePool = field(default_factory=StyleValuePool)
 
     def direction(self) -> YGDirection:
         return self.direction_
@@ -175,96 +252,131 @@ class Style:
         self.display_ = value
 
     def flex(self) -> FloatOptional:
-        return self.flex_
+        return self.pool_.get_number(self.flex_)
 
     def setFlex(self, value: FloatOptional) -> None:
-        self.flex_ = value
+        self.pool_.store_number(self.flex_, _normalize_float_optional(value))
 
     def flexGrow(self) -> FloatOptional:
-        return self.flexGrow_
+        return self.pool_.get_number(self.flexGrow_)
 
     def setFlexGrow(self, value: FloatOptional) -> None:
-        self.flexGrow_ = value
+        self.pool_.store_number(self.flexGrow_, _normalize_float_optional(value))
 
     def flexShrink(self) -> FloatOptional:
-        return self.flexShrink_
+        return self.pool_.get_number(self.flexShrink_)
 
     def setFlexShrink(self, value: FloatOptional) -> None:
-        self.flexShrink_ = value
+        self.pool_.store_number(self.flexShrink_, _normalize_float_optional(value))
 
     def flexBasis(self) -> StyleSizeLength:
-        return self.flexBasis_
+        return self.pool_.get_size(self.flexBasis_)
 
     def setFlexBasis(self, value: StyleSizeLength) -> None:
-        self.flexBasis_ = value
+        self.pool_.store_size(self.flexBasis_, _normalize_style_size_length(value))
 
     def margin(self, edge: YGEdge) -> StyleLength:
-        return self.margin_[edge]
+        return self.pool_.get_length(self.margin_[edge])
 
     def setMargin(self, edge: YGEdge, value: StyleLength) -> None:
-        self.margin_[edge] = value
+        self.pool_.store_length(self.margin_[edge], _normalize_style_length(value))
 
     def position(self, edge: YGEdge) -> StyleLength:
-        return self.position_[edge]
+        return self.pool_.get_length(self.position_[edge])
 
     def setPosition(self, edge: YGEdge, value: StyleLength) -> None:
-        self.position_[edge] = value
+        self.pool_.store_length(self.position_[edge], _normalize_style_length(value))
 
     def padding(self, edge: YGEdge) -> StyleLength:
-        return self.padding_[edge]
+        return self.pool_.get_length(self.padding_[edge])
 
     def setPadding(self, edge: YGEdge, value: StyleLength) -> None:
-        self.padding_[edge] = value
+        self.pool_.store_length(self.padding_[edge], _normalize_style_length(value))
 
     def border(self, edge: YGEdge) -> StyleLength:
-        return self.border_[edge]
+        return self.pool_.get_length(self.border_[edge])
 
     def setBorder(self, edge: YGEdge, value: StyleLength) -> None:
-        self.border_[edge] = value
+        self.pool_.store_length(self.border_[edge], _normalize_style_length(value))
 
     def gap(self, gutter: YGGutter) -> StyleLength:
-        return self.gap_[gutter]
+        return self.pool_.get_length(self.gap_[gutter])
 
     def setGap(self, gutter: YGGutter, value: StyleLength) -> None:
-        self.gap_[gutter] = value
+        self.pool_.store_length(self.gap_[gutter], _normalize_style_length(value))
 
     def dimension(self, axis: YGDimension) -> StyleSizeLength:
-        return self.dimensions_[axis]
+        return self.pool_.get_size(self.dimensions_[axis])
 
     def setDimension(self, axis: YGDimension, value: StyleSizeLength) -> None:
-        self.dimensions_[axis] = value
+        self.pool_.store_size(self.dimensions_[axis], _normalize_style_size_length(value))
 
     def minDimension(self, axis: YGDimension) -> StyleSizeLength:
-        return self.minDimensions_[axis]
+        return self.pool_.get_size(self.minDimensions_[axis])
 
     def setMinDimension(self, axis: YGDimension, value: StyleSizeLength) -> None:
-        self.minDimensions_[axis] = value
+        self.pool_.store_size(self.minDimensions_[axis], _normalize_style_size_length(value))
 
-    # Grid Container Properties
-    def maxDimension(self, axis: YGDimension) -> StyleSizeLength:
-        return self.maxDimensions_[axis]
+    def gridTemplateColumns(self) -> GridTrackList:
+        return self.gridTemplateColumns_
 
-    def setMaxDimension(self, axis: YGDimension, value: StyleSizeLength) -> None:
-        self.maxDimensions_[axis] = value
+    def setGridTemplateColumns(self, value: GridTrackList) -> None:
+        self.gridTemplateColumns_ = list(value)
 
-    def aspectRatio(self) -> FloatOptional:
-        return self.aspectRatio_
+    def resizeGridTemplateColumns(self, count: int) -> None:
+        if count < len(self.gridTemplateColumns_):
+            del self.gridTemplateColumns_[count:]
+        else:
+            self.gridTemplateColumns_.extend(GridTrackSize.auto_() for _ in range(count - len(self.gridTemplateColumns_)))
 
-    def setAspectRatio(self, value: FloatOptional) -> None:
-        unwrapped = value.unwrap()
-        self.aspectRatio_ = (
-            FloatOptional()
-            if value == 0.0 or unwrapped == float("inf") or unwrapped == float("-inf")
-            else value
-        )
+    def setGridTemplateColumnAt(self, index: int, value: GridTrackSize) -> None:
+        self.gridTemplateColumns_[index] = value
 
-    def boxSizing(self) -> YGBoxSizing:
-        return self.boxSizing_
+    def gridTemplateRows(self) -> GridTrackList:
+        return self.gridTemplateRows_
 
-    def setBoxSizing(self, value: YGBoxSizing) -> None:
-        self.boxSizing_ = value
+    def setGridTemplateRows(self, value: GridTrackList) -> None:
+        self.gridTemplateRows_ = list(value)
 
-    # Grid Item Properties
+    def resizeGridTemplateRows(self, count: int) -> None:
+        if count < len(self.gridTemplateRows_):
+            del self.gridTemplateRows_[count:]
+        else:
+            self.gridTemplateRows_.extend(GridTrackSize.auto_() for _ in range(count - len(self.gridTemplateRows_)))
+
+    def setGridTemplateRowAt(self, index: int, value: GridTrackSize) -> None:
+        self.gridTemplateRows_[index] = value
+
+    def gridAutoColumns(self) -> GridTrackList:
+        return self.gridAutoColumns_
+
+    def setGridAutoColumns(self, value: GridTrackList) -> None:
+        self.gridAutoColumns_ = list(value)
+
+    def resizeGridAutoColumns(self, count: int) -> None:
+        if count < len(self.gridAutoColumns_):
+            del self.gridAutoColumns_[count:]
+        else:
+            self.gridAutoColumns_.extend(GridTrackSize.auto_() for _ in range(count - len(self.gridAutoColumns_)))
+
+    def setGridAutoColumnAt(self, index: int, value: GridTrackSize) -> None:
+        self.gridAutoColumns_[index] = value
+
+    def gridAutoRows(self) -> GridTrackList:
+        return self.gridAutoRows_
+
+    def setGridAutoRows(self, value: GridTrackList) -> None:
+        self.gridAutoRows_ = list(value)
+
+    def resizeGridAutoRows(self, count: int) -> None:
+        if count < len(self.gridAutoRows_):
+            del self.gridAutoRows_[count:]
+        else:
+            self.gridAutoRows_.extend(GridTrackSize.auto_() for _ in range(count - len(self.gridAutoRows_)))
+
+    def setGridAutoRowAt(self, index: int, value: GridTrackSize) -> None:
+        self.gridAutoRows_[index] = value
+
     def gridColumnStart(self) -> GridLine:
         return self.gridColumnStart_
 
@@ -289,136 +401,76 @@ class Style:
     def setGridRowEnd(self, value: GridLine) -> None:
         self.gridRowEnd_ = value
 
-    def resizeGridTemplateColumns(self, count: int) -> None:
-        self.gridTemplateColumns_ = [GridTrackSize.auto_() for _ in range(count)]
+    def maxDimension(self, axis: YGDimension) -> StyleSizeLength:
+        return self.pool_.get_size(self.maxDimensions_[axis])
 
-    def setGridTemplateColumnAt(self, index: int, value: GridTrackSize) -> None:
-        self.gridTemplateColumns_[index] = value
+    def setMaxDimension(self, axis: YGDimension, value: StyleSizeLength) -> None:
+        self.pool_.store_size(self.maxDimensions_[axis], _normalize_style_size_length(value))
 
-    def resizeGridTemplateRows(self, count: int) -> None:
-        self.gridTemplateRows_ = [GridTrackSize.auto_() for _ in range(count)]
+    def aspectRatio(self) -> FloatOptional:
+        return self.pool_.get_number(self.aspectRatio_)
 
-    def setGridTemplateRowAt(self, index: int, value: GridTrackSize) -> None:
-        self.gridTemplateRows_[index] = value
+    def setAspectRatio(self, value: FloatOptional) -> None:
+        normalized_value = _normalize_float_optional(value)
+        unwrapped = normalized_value.unwrap()
+        self.pool_.store_number(
+            self.aspectRatio_,
+            FloatOptional()
+            if normalized_value == 0.0 or unwrapped == float("inf") or unwrapped == float("-inf")
+            else normalized_value,
+        )
 
-    def resizeGridAutoColumns(self, count: int) -> None:
-        self.gridAutoColumns_ = [GridTrackSize.auto_() for _ in range(count)]
+    def boxSizing(self) -> YGBoxSizing:
+        return self.boxSizing_
 
-    def setGridAutoColumnAt(self, index: int, value: GridTrackSize) -> None:
-        self.gridAutoColumns_[index] = value
+    def setBoxSizing(self, value: YGBoxSizing) -> None:
+        self.boxSizing_ = value
 
-    def resizeGridAutoRows(self, count: int) -> None:
-        self.gridAutoRows_ = [GridTrackSize.auto_() for _ in range(count)]
+    def resolvedMinDimension(
+        self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
+    ) -> FloatOptional:
+        value = self.minDimension(axis).resolve(referenceLength)
+        if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
+            return value
 
-    def setGridAutoRowAt(self, index: int, value: GridTrackSize) -> None:
-        self.gridAutoRows_[index] = value
+        dimensionPaddingAndBorder = FloatOptional(
+            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
+        )
+        return value + (
+            dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
+        )
 
-    def computeGapForAxis(self, axis: YGFlexDirection, ownerSize: float) -> float:
-        if isRow(axis):
-            gap = self.computeColumnGap()
-        else:
-            gap = self.computeRowGap()
-        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
+    def resolvedMaxDimension(
+        self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
+    ) -> FloatOptional:
+        value = self.maxDimension(axis).resolve(referenceLength)
+        if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
+            return value
 
-    def computeGapForDimension(self, dimension: YGDimension, ownerSize: float) -> float:
-        gap = self.computeColumnGap() if dimension == YGDimension.YGDimensionWidth else self.computeRowGap()
-        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
+        dimensionPaddingAndBorder = FloatOptional(
+            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
+        )
+        return value + (
+            dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
+        )
 
-    def computeColumnGap(self) -> StyleLength:
-        if self.gap_[YGGutter.YGGutterColumn].isDefined():
-            return self.gap_[YGGutter.YGGutterColumn]
-        else:
-            return self.gap_[YGGutter.YGGutterAll]
+    def horizontalInsetsDefined(self) -> bool:
+        return (
+            self.position_[YGEdge.YGEdgeLeft].isDefined()
+            or self.position_[YGEdge.YGEdgeRight].isDefined()
+            or self.position_[YGEdge.YGEdgeAll].isDefined()
+            or self.position_[YGEdge.YGEdgeHorizontal].isDefined()
+            or self.position_[YGEdge.YGEdgeStart].isDefined()
+            or self.position_[YGEdge.YGEdgeEnd].isDefined()
+        )
 
-    def computeRowGap(self) -> StyleLength:
-        if self.gap_[YGGutter.YGGutterRow].isDefined():
-            return self.gap_[YGGutter.YGGutterRow]
-        else:
-            return self.gap_[YGGutter.YGGutterAll]
-
-    def _computeLeftEdge(self, edges: dict[YGEdge, StyleLength], layoutDirection: YGDirection) -> StyleLength:
-        if layoutDirection == YGDirection.YGDirectionLTR and edges[YGEdge.YGEdgeStart].isDefined():
-            return edges[YGEdge.YGEdgeStart]
-        elif layoutDirection == YGDirection.YGDirectionRTL and edges[YGEdge.YGEdgeEnd].isDefined():
-            return edges[YGEdge.YGEdgeEnd]
-        elif edges[YGEdge.YGEdgeLeft].isDefined():
-            return edges[YGEdge.YGEdgeLeft]
-        elif edges[YGEdge.YGEdgeHorizontal].isDefined():
-            return edges[YGEdge.YGEdgeHorizontal]
-        else:
-            return edges[YGEdge.YGEdgeAll]
-
-    def _computeTopEdge(self, edges: dict[YGEdge, StyleLength]) -> StyleLength:
-        if edges[YGEdge.YGEdgeTop].isDefined():
-            return edges[YGEdge.YGEdgeTop]
-        elif edges[YGEdge.YGEdgeVertical].isDefined():
-            return edges[YGEdge.YGEdgeVertical]
-        else:
-            return edges[YGEdge.YGEdgeAll]
-
-    def _computeRightEdge(self, edges: dict[YGEdge, StyleLength], layoutDirection: YGDirection) -> StyleLength:
-        if layoutDirection == YGDirection.YGDirectionLTR and edges[YGEdge.YGEdgeEnd].isDefined():
-            return edges[YGEdge.YGEdgeEnd]
-        elif layoutDirection == YGDirection.YGDirectionRTL and edges[YGEdge.YGEdgeStart].isDefined():
-            return edges[YGEdge.YGEdgeStart]
-        elif edges[YGEdge.YGEdgeRight].isDefined():
-            return edges[YGEdge.YGEdgeRight]
-        elif edges[YGEdge.YGEdgeHorizontal].isDefined():
-            return edges[YGEdge.YGEdgeHorizontal]
-        else:
-            return edges[YGEdge.YGEdgeAll]
-
-    def _computeBottomEdge(self, edges: dict[YGEdge, StyleLength]) -> StyleLength:
-        if edges[YGEdge.YGEdgeBottom].isDefined():
-            return edges[YGEdge.YGEdgeBottom]
-        elif edges[YGEdge.YGEdgeVertical].isDefined():
-            return edges[YGEdge.YGEdgeVertical]
-        else:
-            return edges[YGEdge.YGEdgeAll]
-
-    def computePosition(self, edge, direction: YGDirection) -> StyleLength:
-        if edge == YGEdge.YGEdgeLeft:
-            return self._computeLeftEdge(self.position_, direction)
-        if edge == YGEdge.YGEdgeTop:
-            return self._computeTopEdge(self.position_)
-        if edge == YGEdge.YGEdgeRight:
-            return self._computeRightEdge(self.position_, direction)
-        if edge == YGEdge.YGEdgeBottom:
-            return self._computeBottomEdge(self.position_)
-        fatalWithMessage("Invalid physical edge")
-
-    def computeMargin(self, edge, direction: YGDirection) -> StyleLength:
-        if edge == YGEdge.YGEdgeLeft:
-            return self._computeLeftEdge(self.margin_, direction)
-        if edge == YGEdge.YGEdgeTop:
-            return self._computeTopEdge(self.margin_)
-        if edge == YGEdge.YGEdgeRight:
-            return self._computeRightEdge(self.margin_, direction)
-        if edge == YGEdge.YGEdgeBottom:
-            return self._computeBottomEdge(self.margin_)
-        fatalWithMessage("Invalid physical edge")
-
-    def computePadding(self, edge, direction: YGDirection) -> StyleLength:
-        if edge == YGEdge.YGEdgeLeft:
-            return self._computeLeftEdge(self.padding_, direction)
-        if edge == YGEdge.YGEdgeTop:
-            return self._computeTopEdge(self.padding_)
-        if edge == YGEdge.YGEdgeRight:
-            return self._computeRightEdge(self.padding_, direction)
-        if edge == YGEdge.YGEdgeBottom:
-            return self._computeBottomEdge(self.padding_)
-        fatalWithMessage("Invalid physical edge")
-
-    def computeBorder(self, edge, direction: YGDirection) -> StyleLength:
-        if edge == YGEdge.YGEdgeLeft:
-            return self._computeLeftEdge(self.border_, direction)
-        if edge == YGEdge.YGEdgeTop:
-            return self._computeTopEdge(self.border_)
-        if edge == YGEdge.YGEdgeRight:
-            return self._computeRightEdge(self.border_, direction)
-        if edge == YGEdge.YGEdgeBottom:
-            return self._computeBottomEdge(self.border_)
-        fatalWithMessage("Invalid physical edge")
+    def verticalInsetsDefined(self) -> bool:
+        return (
+            self.position_[YGEdge.YGEdgeTop].isDefined()
+            or self.position_[YGEdge.YGEdgeBottom].isDefined()
+            or self.position_[YGEdge.YGEdgeAll].isDefined()
+            or self.position_[YGEdge.YGEdgeVertical].isDefined()
+        )
 
     def isFlexStartPositionDefined(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
         return self.computePosition(flexStartEdge(axis), direction).isDefined()
@@ -507,18 +559,15 @@ class Style:
     def computePaddingAndBorderForDimension(
         self, direction: YGDirection, dimension: YGDimension, widthSize: float
     ) -> float:
-        flexDirectionForDimension = YGFlexDirection.YGFlexDirectionRow if dimension == YGDimension.YGDimensionWidth else YGFlexDirection.YGFlexDirectionColumn
+        flexDirectionForDimension = (
+            YGFlexDirection.YGFlexDirectionRow
+            if dimension == YGDimension.YGDimensionWidth
+            else YGFlexDirection.YGFlexDirectionColumn
+        )
         return self.computeFlexStartPaddingAndBorder(
             flexDirectionForDimension, direction, widthSize
         ) + self.computeFlexEndPaddingAndBorder(
             flexDirectionForDimension, direction, widthSize
-        )
-
-    def computeMarginForAxis(self, axis: YGFlexDirection, widthSize: float) -> float:
-        # The total margin for a given axis does not depend on the direction,
-        # so hardcoding LTR here avoids piping direction into this function.
-        return self.computeInlineStartMargin(axis, YGDirection.YGDirectionLTR, widthSize) + self.computeInlineEndMargin(
-            axis, YGDirection.YGDirectionLTR, widthSize
         )
 
     def computeBorderForAxis(self, axis: YGFlexDirection) -> float:
@@ -526,53 +575,18 @@ class Style:
             axis, YGDirection.YGDirectionLTR
         )
 
-    def resolvedMinDimension(
-        self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
-    ) -> FloatOptional:
-        value = self.minDimension(axis).resolve(referenceLength)
-        if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
-            return value
-
-        dimensionPaddingAndBorder = FloatOptional(
-            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
+    def computeMarginForAxis(self, axis: YGFlexDirection, widthSize: float) -> float:
+        return self.computeInlineStartMargin(axis, YGDirection.YGDirectionLTR, widthSize) + self.computeInlineEndMargin(
+            axis, YGDirection.YGDirectionLTR, widthSize
         )
 
-        return value + (
-            dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
-        )
+    def computeGapForAxis(self, axis: YGFlexDirection, ownerSize: float) -> float:
+        gap = self.computeColumnGap() if isRow(axis) else self.computeRowGap()
+        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
 
-    def resolvedMaxDimension(
-        self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
-    ) -> FloatOptional:
-        value = self.maxDimension(axis).resolve(referenceLength)
-        if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
-            return value
-
-        dimensionPaddingAndBorder = FloatOptional(
-            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
-        )
-
-        return value + (
-            dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
-        )
-
-    def horizontalInsetsDefined(self) -> bool:
-        return (
-            self.position_[YGEdge.YGEdgeLeft].isDefined()
-            or self.position_[YGEdge.YGEdgeRight].isDefined()
-            or self.position_[YGEdge.YGEdgeAll].isDefined()
-            or self.position_[YGEdge.YGEdgeHorizontal].isDefined()
-            or self.position_[YGEdge.YGEdgeStart].isDefined()
-            or self.position_[YGEdge.YGEdgeEnd].isDefined()
-        )
-
-    def verticalInsetsDefined(self) -> bool:
-        return (
-            self.position_[YGEdge.YGEdgeTop].isDefined()
-            or self.position_[YGEdge.YGEdgeBottom].isDefined()
-            or self.position_[YGEdge.YGEdgeAll].isDefined()
-            or self.position_[YGEdge.YGEdgeVertical].isDefined()
-        )
+    def computeGapForDimension(self, dimension: YGDimension, ownerSize: float) -> float:
+        gap = self.computeColumnGap() if dimension == YGDimension.YGDimensionWidth else self.computeRowGap()
+        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
 
     def flexStartMarginIsAuto(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
         return self.computeMargin(flexStartEdge(axis), direction).isAuto()
@@ -603,19 +617,51 @@ class Style:
             and self.flexWrap_ == other.flexWrap_
             and self.overflow_ == other.overflow_
             and self.display_ == other.display_
-            and self.flex_ == other.flex_
-            and self.flexGrow_ == other.flexGrow_
-            and self.flexShrink_ == other.flexShrink_
-            and self.flexBasis_ == other.flexBasis_
-            and self.margin_ == other.margin_
-            and self.position_ == other.position_
-            and self.padding_ == other.padding_
-            and self.border_ == other.border_
-            and self.gap_ == other.gap_
-            and self.dimensions_ == other.dimensions_
-            and self.minDimensions_ == other.minDimensions_
-            and self.maxDimensions_ == other.maxDimensions_
-            and self.aspectRatio_ == other.aspectRatio_
+            and _numbers_equal(self.flex_, self.pool_, other.flex_, other.pool_)
+            and _numbers_equal(self.flexGrow_, self.pool_, other.flexGrow_, other.pool_)
+            and _numbers_equal(self.flexShrink_, self.pool_, other.flexShrink_, other.pool_)
+            and _size_handles_equal(self.flexBasis_, self.pool_, other.flexBasis_, other.pool_)
+            and _handle_arrays_equal(
+                self.margin_,
+                other.margin_,
+                lambda lhs, rhs: _length_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.position_,
+                other.position_,
+                lambda lhs, rhs: _length_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.padding_,
+                other.padding_,
+                lambda lhs, rhs: _length_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.border_,
+                other.border_,
+                lambda lhs, rhs: _length_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.gap_,
+                other.gap_,
+                lambda lhs, rhs: _length_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.dimensions_,
+                other.dimensions_,
+                lambda lhs, rhs: _size_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.minDimensions_,
+                other.minDimensions_,
+                lambda lhs, rhs: _size_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _handle_arrays_equal(
+                self.maxDimensions_,
+                other.maxDimensions_,
+                lambda lhs, rhs: _size_handles_equal(lhs, self.pool_, rhs, other.pool_),
+            )
+            and _numbers_equal(self.aspectRatio_, self.pool_, other.aspectRatio_, other.pool_)
             and self.gridTemplateColumns_ == other.gridTemplateColumns_
             and self.gridTemplateRows_ == other.gridTemplateRows_
             and self.gridAutoColumns_ == other.gridAutoColumns_
@@ -625,3 +671,93 @@ class Style:
             and self.gridRowStart_ == other.gridRowStart_
             and self.gridRowEnd_ == other.gridRowEnd_
         )
+
+    def computeColumnGap(self) -> StyleLength:
+        if self.gap_[YGGutter.YGGutterColumn].isDefined():
+            return self.pool_.get_length(self.gap_[YGGutter.YGGutterColumn])
+        return self.pool_.get_length(self.gap_[YGGutter.YGGutterAll])
+
+    def computeRowGap(self) -> StyleLength:
+        if self.gap_[YGGutter.YGGutterRow].isDefined():
+            return self.pool_.get_length(self.gap_[YGGutter.YGGutterRow])
+        return self.pool_.get_length(self.gap_[YGGutter.YGGutterAll])
+
+    def _computeLeftEdge(self, edges: list[StyleValueHandle], layoutDirection: YGDirection) -> StyleLength:
+        if layoutDirection == YGDirection.YGDirectionLTR and edges[YGEdge.YGEdgeStart].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeStart])
+        if layoutDirection == YGDirection.YGDirectionRTL and edges[YGEdge.YGEdgeEnd].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeEnd])
+        if edges[YGEdge.YGEdgeLeft].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeLeft])
+        if edges[YGEdge.YGEdgeHorizontal].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeHorizontal])
+        return self.pool_.get_length(edges[YGEdge.YGEdgeAll])
+
+    def _computeTopEdge(self, edges: list[StyleValueHandle]) -> StyleLength:
+        if edges[YGEdge.YGEdgeTop].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeTop])
+        if edges[YGEdge.YGEdgeVertical].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeVertical])
+        return self.pool_.get_length(edges[YGEdge.YGEdgeAll])
+
+    def _computeRightEdge(self, edges: list[StyleValueHandle], layoutDirection: YGDirection) -> StyleLength:
+        if layoutDirection == YGDirection.YGDirectionLTR and edges[YGEdge.YGEdgeEnd].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeEnd])
+        if layoutDirection == YGDirection.YGDirectionRTL and edges[YGEdge.YGEdgeStart].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeStart])
+        if edges[YGEdge.YGEdgeRight].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeRight])
+        if edges[YGEdge.YGEdgeHorizontal].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeHorizontal])
+        return self.pool_.get_length(edges[YGEdge.YGEdgeAll])
+
+    def _computeBottomEdge(self, edges: list[StyleValueHandle]) -> StyleLength:
+        if edges[YGEdge.YGEdgeBottom].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeBottom])
+        if edges[YGEdge.YGEdgeVertical].isDefined():
+            return self.pool_.get_length(edges[YGEdge.YGEdgeVertical])
+        return self.pool_.get_length(edges[YGEdge.YGEdgeAll])
+
+    def computePosition(self, edge, direction: YGDirection) -> StyleLength:
+        if edge == YGEdge.YGEdgeLeft:
+            return self._computeLeftEdge(self.position_, direction)
+        if edge == YGEdge.YGEdgeTop:
+            return self._computeTopEdge(self.position_)
+        if edge == YGEdge.YGEdgeRight:
+            return self._computeRightEdge(self.position_, direction)
+        if edge == YGEdge.YGEdgeBottom:
+            return self._computeBottomEdge(self.position_)
+        fatalWithMessage("Invalid physical edge")
+
+    def computeMargin(self, edge, direction: YGDirection) -> StyleLength:
+        if edge == YGEdge.YGEdgeLeft:
+            return self._computeLeftEdge(self.margin_, direction)
+        if edge == YGEdge.YGEdgeTop:
+            return self._computeTopEdge(self.margin_)
+        if edge == YGEdge.YGEdgeRight:
+            return self._computeRightEdge(self.margin_, direction)
+        if edge == YGEdge.YGEdgeBottom:
+            return self._computeBottomEdge(self.margin_)
+        fatalWithMessage("Invalid physical edge")
+
+    def computePadding(self, edge, direction: YGDirection) -> StyleLength:
+        if edge == YGEdge.YGEdgeLeft:
+            return self._computeLeftEdge(self.padding_, direction)
+        if edge == YGEdge.YGEdgeTop:
+            return self._computeTopEdge(self.padding_)
+        if edge == YGEdge.YGEdgeRight:
+            return self._computeRightEdge(self.padding_, direction)
+        if edge == YGEdge.YGEdgeBottom:
+            return self._computeBottomEdge(self.padding_)
+        fatalWithMessage("Invalid physical edge")
+
+    def computeBorder(self, edge, direction: YGDirection) -> StyleLength:
+        if edge == YGEdge.YGEdgeLeft:
+            return self._computeLeftEdge(self.border_, direction)
+        if edge == YGEdge.YGEdgeTop:
+            return self._computeTopEdge(self.border_)
+        if edge == YGEdge.YGEdgeRight:
+            return self._computeRightEdge(self.border_, direction)
+        if edge == YGEdge.YGEdgeBottom:
+            return self._computeBottomEdge(self.border_)
+        fatalWithMessage("Invalid physical edge")

@@ -30,6 +30,14 @@ def test_measure_with_measure_fn():
     assert n.measure(23, YGMeasureMode.YGMeasureModeExactly, 24, YGMeasureMode.YGMeasureModeAtMost) == YGSize(23, 12)
 
 
+def test_measure_coerces_two_item_sequence_to_ygsize():
+    n = Node()
+    n.setMeasureFunc(
+        lambda _node, w, _wm, h, _hm: (w, h)
+    )
+    assert n.measure(23, YGMeasureMode.YGMeasureModeExactly, 24, YGMeasureMode.YGMeasureModeAtMost) == YGSize(23, 24)
+
+
 def test_has_measure_func_after_unset():
     n = Node()
     n.setMeasureFunc(lambda _node, _w, _wm, _h, _hm: YGSize(0.0, 0.0))

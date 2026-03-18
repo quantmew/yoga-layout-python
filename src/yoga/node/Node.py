@@ -47,6 +47,26 @@ BaselineFunc = Callable[["Node", float, float], float]
 DirtiedFunc = Callable[["Node"], None]
 
 
+def _coerce_measure_result(size: Any):
+    if hasattr(size, "width") and hasattr(size, "height"):
+        width = size.width
+        height = size.height
+    elif isinstance(size, dict):
+        width = size["width"]
+        height = size["height"]
+    elif isinstance(size, (list, tuple)) and len(size) == 2:
+        width, height = size
+    else:
+        raise TypeError(
+            "Measure function must return an object with width/height, a mapping with "
+            "'width'/'height', or a 2-item sequence."
+        )
+
+    from ..YGNode import YGSize
+
+    return YGSize(width=float(width), height=float(height))
+
+
 @dataclass(eq=False)
 class Node:
     hasNewLayout_: bool = True
@@ -103,9 +123,11 @@ class Node:
         widthMode: YGMeasureMode,
         availableHeight: float,
         heightMode: YGMeasureMode,
-    ) -> Any:
+    ):
         assert self.measureFunc_ is not None
-        size = self.measureFunc_(self, availableWidth, widthMode, availableHeight, heightMode)
+        size = _coerce_measure_result(
+            self.measureFunc_(self, availableWidth, widthMode, availableHeight, heightMode)
+        )
 
         if isUndefined(size.height) or size.height < 0 or isUndefined(size.width) or size.width < 0:
             log(
@@ -115,7 +137,9 @@ class Node:
                 size.width,
                 size.height,
             )
-            return type(size)(
+            from ..YGNode import YGSize
+
+            return YGSize(
                 width=maxOrDefined(0.0, size.width),
                 height=maxOrDefined(0.0, size.height),
             )

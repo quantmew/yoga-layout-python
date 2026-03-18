@@ -16,22 +16,24 @@ from .node.Node import Node
 from .numeric.FloatOptional import FloatOptional
 from .style.GridLine import GridLine
 from .style.GridTrack import GridTrackSize
-from .style.Style import Style
+from .style.Style import Style, normalize_style_value
 from .style.StyleLength import StyleLength
 from .style.StyleSizeLength import StyleSizeLength
 
 
 def _updateStyle(node: Node, getter: str, setter: str, value) -> None:
     style = node.style()
-    if getattr(style, getter)() != value:
-        getattr(style, setter)(value)
+    normalized_value = normalize_style_value(value)
+    if getattr(style, getter)() != normalized_value:
+        getattr(style, setter)(normalized_value)
         node.markDirtyAndPropagate()
 
 
 def _updateIndexedStyle(node: Node, getter: str, setter: str, index, value) -> None:
     style = node.style()
-    if getattr(style, getter)(index) != value:
-        getattr(style, setter)(index, value)
+    normalized_value = normalize_style_value(value)
+    if getattr(style, getter)(index) != normalized_value:
+        getattr(style, setter)(index, normalized_value)
         node.markDirtyAndPropagate()
 
 
