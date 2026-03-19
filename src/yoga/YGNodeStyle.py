@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from .YGEnums import YGBoxSizing, YGDimension, YGEdge, YGGridTrackType, YGGutter
-from .YGValue import YGUndefined, YGValue
 from .debug.AssertFatal import fatalWithMessage
 from .node.Node import Node
 from .numeric.FloatOptional import FloatOptional
@@ -19,6 +17,8 @@ from .style.GridTrack import GridTrackSize
 from .style.Style import Style, normalize_style_value
 from .style.StyleLength import StyleLength
 from .style.StyleSizeLength import StyleSizeLength
+from .YGEnums import YGBoxSizing, YGDimension, YGEdge, YGGridTrackType, YGGutter
+from .YGValue import YGUndefined, YGValue
 
 
 def _updateStyle(node: Node, getter: str, setter: str, value) -> None:

@@ -6,6 +6,6 @@ LICENSE file in the root directory of this source tree.
 """
 
 from .CachedMeasurement import *
-from .LayoutResults import *
 from .LayoutableChildren import *
+from .LayoutResults import *
 from .Node import *

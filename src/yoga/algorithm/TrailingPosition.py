@@ -8,9 +8,9 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 from ..algorithm.FlexDirection import dimension, flexEndEdge, flexStartEdge
+from ..node.Node import Node
 from ..numeric.FloatMath import float32
 from ..YGEnums import YGFlexDirection
-from ..node.Node import Node
 
 
 def getPositionOfOppositeEdge(position: float, axis: YGFlexDirection, containingNode: Node, node: Node) -> float:

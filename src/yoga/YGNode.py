@@ -10,16 +10,15 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 
-from .YGConfig import YGConfigGetDefault
-from .YGEnums import YGDirection, YGMeasureMode, YGNodeType
 from .algorithm.Cache import canUseCachedMeasurement
 from .algorithm.CalculateLayout import calculateLayout
 from .algorithm.SizingMode import sizingMode
 from .debug.AssertFatal import assertFatal, assertFatalWithNode
 from .event.event import Event, NodeAllocationData, NodeDeallocationData
-from .node.Node import Node
 from .node.LayoutResults import LayoutResults
-
+from .node.Node import Node
+from .YGConfig import YGConfigGetDefault
+from .YGEnums import YGDirection, YGMeasureMode, YGNodeType
 
 YGNodeRef = Node
 YGNodeConstRef = Node

@@ -8,13 +8,17 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 from ..algorithm.Align import resolveChildAlignment
 from ..algorithm.FlexDirection import isColumn
 from ..YGEnums import YGAlign, YGDimension, YGEdge, YGPositionType
 
+if TYPE_CHECKING:
+    from ..node.Node import Node
 
-def calculateBaseline(node) -> float:
+
+def calculateBaseline(node: Node) -> float:
     if node.hasBaselineFunc():
         baseline = node.baseline(
             node.getLayout().measuredDimension(YGDimension.YGDimensionWidth),
@@ -40,10 +44,10 @@ def calculateBaseline(node) -> float:
         return node.getLayout().measuredDimension(YGDimension.YGDimensionHeight)
 
     baseline = calculateBaseline(baselineChild)
-    return baseline + baselineChild.getLayout().position(YGEdge.YGEdgeTop)
+    return baseline + baselineChild.getLayout().position(YGEdge.YGEdgeTop)  # type: ignore[no-any-return]
 
 
-def isBaselineLayout(node) -> bool:
+def isBaselineLayout(node: Node) -> bool:
     if isColumn(node.style().flexDirection()):
         return False
     if node.style().alignItems() == YGAlign.YGAlignBaseline:

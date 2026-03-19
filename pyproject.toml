@@ -66,12 +66,27 @@ line-length = 100
 target-version = ["py39", "py310", "py311", "py312"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120  # Relaxed line length for complex type hints and ported code
 target-version = "py39"
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    "N",      # Ignore pep8-naming for C API bindings compatibility
+    "E501",   # Ignore line-length for ported code
+    "SIM102", # Ignore nested if statements (common in layout logic)
+    "F403",   # Allow * imports in __init__.py files
+    "F405",   # Allow names that may be undefined from * imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F403", "F405"]
+"tests/**/*.py" = ["F403", "F405"]
+"tools/**/*.py" = ["F403", "F405"]
 
 [tool.mypy]
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+exclude = ['yoga-layout/enums\.py$']

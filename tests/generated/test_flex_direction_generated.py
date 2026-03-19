@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from yoga import *  # noqa: E402,F403
 
+
 def test_flex_direction_column_no_height():
     config = YGConfigNew()
 

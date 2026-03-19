@@ -11,8 +11,12 @@ from dataclasses import dataclass
 
 from .Comparison import (
     inexactEquals as inexactEqualsFloat,
+)
+from .Comparison import (
     isDefined,
     isUndefined,
+)
+from .Comparison import (
     maxOrDefined as maxOrDefinedFloat,
 )
 
@@ -42,19 +46,19 @@ class FloatOptional:
             return self == FloatOptional(float(other))
         return NotImplemented
 
-    def __add__(self, other: "FloatOptional") -> "FloatOptional":
+    def __add__(self, other: FloatOptional) -> FloatOptional:
         return FloatOptional(self.value + other.value)
 
-    def __lt__(self, other: "FloatOptional") -> bool:
+    def __lt__(self, other: FloatOptional) -> bool:
         return self.value < other.value
 
-    def __gt__(self, other: "FloatOptional") -> bool:
+    def __gt__(self, other: FloatOptional) -> bool:
         return self.value > other.value
 
-    def __le__(self, other: "FloatOptional") -> bool:
+    def __le__(self, other: FloatOptional) -> bool:
         return self < other or self == other
 
-    def __ge__(self, other: "FloatOptional") -> bool:
+    def __ge__(self, other: FloatOptional) -> bool:
         return self > other or self == other
 
 def maxOrDefined(lhs: FloatOptional, rhs: FloatOptional) -> FloatOptional:

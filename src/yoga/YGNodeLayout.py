@@ -7,8 +7,8 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from .YGEnums import YGDimension, YGDirection, YGEdge
 from .node.Node import Node
+from .YGEnums import YGDimension, YGDirection, YGEdge
 
 
 def _getResolvedLayoutProperty(node: Node, edge: YGEdge, member: str) -> float:
@@ -18,15 +18,20 @@ def _getResolvedLayoutProperty(node: Node, edge: YGEdge, member: str) -> float:
     layout = node.getLayout()
     if edge == YGEdge.YGEdgeStart:
         if layout.direction() == YGDirection.YGDirectionRTL:
-            return getattr(layout, member)(YGEdge.YGEdgeRight)
-        return getattr(layout, member)(YGEdge.YGEdgeLeft)
+            result = getattr(layout, member)(YGEdge.YGEdgeRight)
+            return result  # type: ignore[no-any-return]
+        result = getattr(layout, member)(YGEdge.YGEdgeLeft)
+        return result  # type: ignore[no-any-return]
 
     if edge == YGEdge.YGEdgeEnd:
         if layout.direction() == YGDirection.YGDirectionRTL:
-            return getattr(layout, member)(YGEdge.YGEdgeLeft)
-        return getattr(layout, member)(YGEdge.YGEdgeRight)
+            result = getattr(layout, member)(YGEdge.YGEdgeLeft)
+            return result  # type: ignore[no-any-return]
+        result = getattr(layout, member)(YGEdge.YGEdgeRight)
+        return result  # type: ignore[no-any-return]
 
-    return getattr(layout, member)(edge)
+    result = getattr(layout, member)(edge)
+    return result  # type: ignore[no-any-return]
 
 
 def YGNodeLayoutGetLeft(node: Node) -> float:

@@ -11,7 +11,8 @@ from struct import pack, unpack
 
 
 def float32(value: float) -> float:
-    return unpack("!f", pack("!f", float(value)))[0]
+    result: float = unpack("!f", pack("!f", float(value)))[0]
+    return result
 
 
 def floatDivision(numerator: float, denominator: float) -> float:

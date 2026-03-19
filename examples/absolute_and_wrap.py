@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from yoga import (  # noqa: E402
     YGDirection,
+    YGEdge,
     YGFlexDirection,
     YGNodeCalculateLayout,
     YGNodeFreeRecursive,
@@ -22,7 +23,6 @@ from yoga import (  # noqa: E402
     YGNodeStyleSetPositionType,
     YGNodeStyleSetWidth,
     YGPositionType,
-    YGEdge,
     YGWrap,
 )
 

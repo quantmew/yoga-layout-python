@@ -4,9 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from yoga import YGConfigFree, YGConfigNew, YGNodeFree  # noqa: E402
-from yoga.config.Config import Config  # noqa: E402
 from yoga.node.Node import Node  # noqa: E402
-
 
 _CLONED_NODE = Node()
 

@@ -1,4 +1,3 @@
-import math
 import sys
 from pathlib import Path
 
@@ -6,7 +5,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from yoga import YGFloatIsUndefined, YGUndefined  # noqa: E402
 from yoga.numeric.FloatOptional import FloatOptional, maxOrDefined  # noqa: E402
-
 
 empty = FloatOptional()
 zero = FloatOptional(0.0)
@@ -55,27 +53,27 @@ def test_equality():
 
 
 def test_inequality():
-    assert not (empty != empty)
-    assert not (empty != YGUndefined)
+    assert empty == empty
+    assert empty == YGUndefined
     assert empty != zero
     assert empty != negative
     assert empty != 12.3
 
-    assert not (zero != zero)
-    assert not (zero != 0.0)
+    assert zero == zero
+    assert zero == 0.0
     assert zero != positive
     assert zero != -5555.5
 
-    assert not (one != one)
-    assert not (one != 1.0)
+    assert one == one
+    assert one == 1.0
     assert one != positive
 
-    assert not (positive != positive)
-    assert not (positive != positive.unwrap())
+    assert positive == positive
+    assert positive == positive.unwrap()
     assert positive != one
 
-    assert not (negative != negative)
-    assert not (negative != negative.unwrap())
+    assert negative == negative
+    assert negative == negative.unwrap()
     assert negative != zero
 
 

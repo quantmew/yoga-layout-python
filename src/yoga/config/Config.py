@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from ..YGEnums import YGErrata, YGExperimentalFeature, YGLogLevel
 
-
 YGLogger = Callable[..., int]
 YGCloneNodeFunc = Callable[..., Any]
 
@@ -113,7 +112,7 @@ class Config:
         if clone is None:
             from ..YGNode import YGNodeClone
 
-            clone = YGNodeClone(node)
+            clone = YGNodeClone(node)  # type: ignore[arg-type]
         return clone
 
 

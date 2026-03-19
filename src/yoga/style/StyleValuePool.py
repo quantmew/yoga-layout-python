@@ -8,13 +8,12 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 import struct
-from typing import Optional
 
+from ..numeric.FloatOptional import FloatOptional
 from .SmallValueBuffer import SmallValueBuffer
 from .StyleLength import StyleLength
 from .StyleSizeLength import StyleSizeLength
 from .StyleValueHandle import StyleValueHandle
-from ..numeric.FloatOptional import FloatOptional
 
 
 class StyleValuePool:
@@ -156,7 +155,8 @@ class StyleValuePool:
         """Extract a float value from the handle."""
         if handle.isValueIndexed():
             int_value = self._buffer.get32(handle._value())
-            return struct.unpack("<f", struct.pack("<I", int_value))[0]
+            result: float = struct.unpack("<f", struct.pack("<I", int_value))[0]
+            return result
         else:
             return self._unpack_inline_integer(handle._value())
 
@@ -184,7 +184,7 @@ class StyleValuePool:
         magnitude = value & k_value_magnitude_mask
         return float(-magnitude if is_negative else magnitude)
 
-    def copy(self) -> "StyleValuePool":
+    def copy(self) -> StyleValuePool:
         """Create a copy of this pool."""
         new_pool = StyleValuePool()
         new_pool._buffer = self._buffer.copy()

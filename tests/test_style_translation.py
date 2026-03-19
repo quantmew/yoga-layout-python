@@ -3,9 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from yoga.YGEnums import YGDirection, YGEdge, YGFlexDirection, YGGutter  # noqa: E402
 from yoga.style.Style import Style  # noqa: E402
 from yoga.style.StyleLength import StyleLength  # noqa: E402
+from yoga.YGEnums import YGDirection, YGEdge, YGFlexDirection, YGGutter  # noqa: E402
 
 
 def test_computed_padding_is_floored():

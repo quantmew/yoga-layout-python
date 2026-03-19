@@ -74,3 +74,4 @@ def dimension(flexDirection: YGFlexDirection) -> YGDimension:
     if flexDirection in (YGFlexDirection.YGFlexDirectionRow, YGFlexDirection.YGFlexDirectionRowReverse):
         return YGDimension.YGDimensionWidth
     fatalWithMessage("Invalid FlexDirection")
+    raise AssertionError("Unreachable")  # type: ignore[return-value]

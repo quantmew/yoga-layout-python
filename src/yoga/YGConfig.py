@@ -9,9 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .YGEnums import YGErrata, YGExperimentalFeature
 from .config.Config import Config, _default_logger, getDefaultConfig, resolveRef
-
+from .YGEnums import YGErrata, YGExperimentalFeature
 
 YGConfigRef = Config
 YGConfigConstRef = Config
@@ -34,59 +33,81 @@ def YGConfigGetDefault() -> YGConfigConstRef:
 
 
 def YGConfigSetUseWebDefaults(config: YGConfigRef, enabled: bool) -> None:
-    resolveRef(config).setUseWebDefaults(enabled)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    config_ref.setUseWebDefaults(enabled)
 
 
 def YGConfigGetUseWebDefaults(config: YGConfigConstRef) -> bool:
-    return resolveRef(config).useWebDefaults()
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    return config_ref.useWebDefaults()
 
 
 def YGConfigSetPointScaleFactor(config: YGConfigRef, pixelsInPoint: float) -> None:
-    configRef = resolveRef(config)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
     if pixelsInPoint < 0.0:
         raise ValueError("Scale factor should not be less than zero")
-    configRef.setPointScaleFactor(pixelsInPoint)
+    config_ref.setPointScaleFactor(pixelsInPoint)
 
 
 def YGConfigGetPointScaleFactor(config: YGConfigConstRef) -> float:
-    return resolveRef(config).getPointScaleFactor()
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    return config_ref.getPointScaleFactor()
 
 
 def YGConfigSetErrata(config: YGConfigRef, errata: YGErrata) -> None:
-    resolveRef(config).setErrata(errata)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    config_ref.setErrata(errata)
 
 
 def YGConfigGetErrata(config: YGConfigConstRef) -> YGErrata:
-    return resolveRef(config).getErrata()
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    return config_ref.getErrata()
 
 
 def YGConfigSetLogger(config: YGConfigRef, logger: YGLogger) -> None:
-    configRef = resolveRef(config)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
     if logger is not None:
-        configRef.setLogger(logger)
+        config_ref.setLogger(logger)
     else:
-        configRef.setLogger(_default_logger)
+        config_ref.setLogger(_default_logger)
 
 
 def YGConfigSetContext(config: YGConfigRef, context: object) -> None:
-    resolveRef(config).setContext(context)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    config_ref.setContext(context)
 
 
 def YGConfigGetContext(config: YGConfigConstRef) -> object:
-    return resolveRef(config).getContext()
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    return config_ref.getContext()
 
 
 def YGConfigSetExperimentalFeatureEnabled(
     config: YGConfigRef, feature: YGExperimentalFeature, enabled: bool
 ) -> None:
-    resolveRef(config).setExperimentalFeatureEnabled(feature, enabled)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    config_ref.setExperimentalFeatureEnabled(feature, enabled)
 
 
 def YGConfigIsExperimentalFeatureEnabled(
     config: YGConfigConstRef, feature: YGExperimentalFeature
 ) -> bool:
-    return resolveRef(config).isExperimentalFeatureEnabled(feature)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    return config_ref.isExperimentalFeatureEnabled(feature)
 
 
 def YGConfigSetCloneNodeFunc(config: YGConfigRef, callback: YGCloneNodeFunc) -> None:
-    resolveRef(config).setCloneNodeCallback(callback)
+    config_ref = resolveRef(config)
+    assert config_ref is not None
+    config_ref.setCloneNodeCallback(callback)

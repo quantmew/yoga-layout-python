@@ -16,8 +16,18 @@ from ..algorithm.FlexDirection import (
     inlineStartEdge,
     isRow,
     resolveCrossDirection,
+)
+from ..algorithm.FlexDirection import (
     resolveDirection as resolveFlexDirection,
 )
+from ..config.Config import Config, configUpdateInvalidatesLayout, getDefaultConfig
+from ..debug.AssertFatal import assertFatal, assertFatalWithConfig, assertFatalWithNode
+from ..debug.Log import log
+from ..numeric.Comparison import isDefined, isUndefined, maxOrDefined
+from ..numeric.FloatOptional import FloatOptional
+from ..style.Style import Style
+from ..style.StyleSizeLength import StyleSizeLength
+from ..style.StyleSizeLength import inexactEquals as inexactEqualsStyleSizeLength
 from ..YGEnums import (
     YGAlign,
     YGBoxSizing,
@@ -26,21 +36,13 @@ from ..YGEnums import (
     YGDisplay,
     YGEdge,
     YGFlexDirection,
+    YGLogLevel,
     YGMeasureMode,
     YGNodeType,
     YGPositionType,
 )
-from ..config.Config import Config, configUpdateInvalidatesLayout, getDefaultConfig
-from ..debug.AssertFatal import assertFatal, assertFatalWithConfig, assertFatalWithNode
-from ..debug.Log import log
-from ..YGEnums import YGLogLevel
-from ..numeric.Comparison import inexactEquals, isDefined, isUndefined, maxOrDefined
-from ..numeric.FloatOptional import FloatOptional
-from ..style.Style import Style
-from ..style.StyleSizeLength import StyleSizeLength, inexactEquals as inexactEqualsStyleSizeLength
 from .LayoutableChildren import LayoutableChildren
 from .LayoutResults import LayoutResults
-
 
 MeasureFunc = Callable[["Node", float, YGMeasureMode, float, YGMeasureMode], Any]
 BaselineFunc = Callable[["Node", float, float], float]
@@ -82,8 +84,8 @@ class Node:
     layout_: LayoutResults = field(default_factory=LayoutResults)
     lineIndex_: int = 0
     contentsChildrenCount_: int = 0
-    owner_: "Node | None" = None
-    children_: list["Node"] = field(default_factory=list)
+    owner_: Node | None = None
+    children_: list[Node] = field(default_factory=list)
     config_: Config = field(default_factory=getDefaultConfig)
     processedDimensions_: dict[YGDimension, StyleSizeLength] = field(
         default_factory=lambda: {
@@ -182,13 +184,13 @@ class Node:
     def isReferenceBaseline(self) -> bool:
         return self.isReferenceBaseline_
 
-    def getOwner(self) -> "Node | None":
+    def getOwner(self) -> Node | None:
         return self.owner_
 
-    def getChildren(self) -> list["Node"]:
+    def getChildren(self) -> list[Node]:
         return self.children_
 
-    def getChild(self, index: int) -> "Node":
+    def getChild(self, index: int) -> Node:
         return self.children_[index]
 
     def getChildCount(self) -> int:
@@ -280,7 +282,7 @@ class Node:
     def setIsReferenceBaseline(self, value: bool) -> None:
         self.isReferenceBaseline_ = value
 
-    def setOwner(self, owner: "Node | None") -> None:
+    def setOwner(self, owner: Node | None) -> None:
         self.owner_ = owner
 
     def setConfig(self, config: Config) -> None:
@@ -306,7 +308,7 @@ class Node:
         if isDirty and self.dirtiedFunc_ is not None:
             self.dirtiedFunc_(self)
 
-    def setChildren(self, children: list["Node"]) -> None:
+    def setChildren(self, children: list[Node]) -> None:
         self.children_ = children
         self.contentsChildrenCount_ = 0
         for child in children:
@@ -374,16 +376,16 @@ class Node:
         )
 
     def processDimensions(self) -> None:
-        for dimension in (YGDimension.YGDimensionWidth, YGDimension.YGDimensionHeight):
+        for dim in (YGDimension.YGDimensionWidth, YGDimension.YGDimensionHeight):
             if (
-                self.style_.maxDimension(dimension).isDefined()
+                self.style_.maxDimension(dim).isDefined()
                 and inexactEqualsStyleSizeLength(
-                    self.style_.maxDimension(dimension), self.style_.minDimension(dimension)
+                    self.style_.maxDimension(dim), self.style_.minDimension(dim)
                 )
             ):
-                self.processedDimensions_[dimension] = self.style_.maxDimension(dimension)
+                self.processedDimensions_[dim] = self.style_.maxDimension(dim)
             else:
-                self.processedDimensions_[dimension] = self.style_.dimension(dimension)
+                self.processedDimensions_[dim] = self.style_.dimension(dim)
 
     def resolveDirection(self, ownerDirection: YGDirection) -> YGDirection:
         if self.style_.direction() == YGDirection.YGDirectionInherit:
@@ -443,7 +445,7 @@ class Node:
         self.children_.clear()
         self.contentsChildrenCount_ = 0
 
-    def replaceChild(self, child_or_old_child: "Node", index_or_new_child) -> None:
+    def replaceChild(self, child_or_old_child: Node, index_or_new_child) -> None:
         if isinstance(index_or_new_child, int):
             child = child_or_old_child
             index = index_or_new_child
@@ -480,7 +482,7 @@ class Node:
                 self.children_[index] = newChild
                 break
 
-    def insertChild(self, child: "Node", index: int) -> None:
+    def insertChild(self, child: Node, index: int) -> None:
         self.children_.insert(index, child)
         if child.style().display() == YGDisplay.YGDisplayContents:
             self.contentsChildrenCount_ += 1
@@ -504,20 +506,20 @@ class Node:
     def cloneChildrenIfNeeded(self) -> None:
         for index, child in enumerate(self.children_):
             if child.getOwner() != self:
-                child = self.config_.cloneNode(child, self, index)
-                self.children_[index] = child
-                child.setOwner(self)
+                cloned_child: Node = self.config_.cloneNode(child, self, index)  # type: ignore[assignment, return-value]
+                self.children_[index] = cloned_child
+                cloned_child.setOwner(self)
 
-                if child.hasContentsChildren():
-                    child.cloneContentsChildrenIfNeeded()
+                if cloned_child.hasContentsChildren():
+                    cloned_child.cloneContentsChildrenIfNeeded()
 
     def cloneContentsChildrenIfNeeded(self) -> None:
         for index, child in enumerate(self.children_):
             if child.style().display() == YGDisplay.YGDisplayContents and child.getOwner() != self:
-                child = self.config_.cloneNode(child, self, index)
-                self.children_[index] = child
-                child.setOwner(self)
-                child.cloneChildrenIfNeeded()
+                cloned_child: Node = self.config_.cloneNode(child, self, index)  # type: ignore[assignment, return-value]
+                self.children_[index] = cloned_child
+                cloned_child.setOwner(self)
+                cloned_child.cloneChildrenIfNeeded()
 
     def markDirtyAndPropagate(self) -> None:
         if not self.isDirty_:

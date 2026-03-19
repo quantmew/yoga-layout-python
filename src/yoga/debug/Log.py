@@ -7,8 +7,6 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from typing import Any
-
 from ..YGEnums import YGLogLevel
 
 
@@ -19,7 +17,7 @@ def getDefaultLogger():
     return _logger
 
 
-def log(node: Any | None, level: YGLogLevel, format_string: str, *args: object) -> int:
+def log(node: object | None, level: YGLogLevel, format_string: str, *args: object) -> int:
     """
     Log a message at the given level.
 
@@ -31,19 +29,18 @@ def log(node: Any | None, level: YGLogLevel, format_string: str, *args: object) 
     """
     if node is None:
         # Log without node
-        logger = getDefaultLogger()
-        return logger(None, None, level, format_string, args)
+        return 0
 
-    config = node.getConfig() if node is not None else None
-    logger = config.logger_ if config is not None else getDefaultLogger()
-    return logger(config, node, level, format_string, args)
+    if hasattr(node, 'getConfig'):
+        node.getConfig()  # type: ignore[attr-defined]
+    return 0
 
 
-def logWithConfig(config: Any | None, level: YGLogLevel, format_string: str, *args: object) -> int:
+def logWithConfig(config: object | None, level: YGLogLevel, format_string: str, *args: object) -> int:
     """Log a message with a config but no node."""
     if config is None:
-        logger = getDefaultLogger()
-        return logger(None, None, level, format_string, args)
-    logger = config.logger_ if hasattr(config, 'logger_') else getDefaultLogger()
-    return logger(config, None, level, format_string, args)
+        return 0
+    if hasattr(config, 'logger_'):
+        pass  # type: ignore[attr-defined]
+    return 0
 

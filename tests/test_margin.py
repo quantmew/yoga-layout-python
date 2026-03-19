@@ -25,8 +25,8 @@ from yoga import (
     YGNodeStyleSetFlexDirection,
     YGNodeStyleSetHeight,
     YGNodeStyleSetMargin,
-    YGNodeStyleSetWidth,
     YGNodeStyleSetPositionType,
+    YGNodeStyleSetWidth,
     YGPositionType,
     YGUndefined,
 )

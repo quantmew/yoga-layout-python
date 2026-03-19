@@ -33,7 +33,6 @@ from yoga import (  # noqa: E402
     YGNodeStyleSetMaxHeightPercent,
     YGNodeStyleSetMaxWidth,
     YGNodeStyleSetMaxWidthPercent,
-    YGNodeStyleSetMinHeightPercent,
     YGNodeStyleSetMinWidth,
     YGNodeStyleSetMinWidthPercent,
     YGNodeStyleSetPadding,

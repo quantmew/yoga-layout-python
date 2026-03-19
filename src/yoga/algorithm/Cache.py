@@ -7,9 +7,9 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from ..YGPixelGrid import YGRoundValueToPixelGrid
 from ..algorithm.SizingMode import SizingMode
 from ..numeric.Comparison import inexactEquals, isDefined
+from ..YGPixelGrid import YGRoundValueToPixelGrid
 
 
 def sizeIsExactAndMatchesOldMeasuredSize(sizeMode: SizingMode, size: float, lastComputedSize: float) -> bool:

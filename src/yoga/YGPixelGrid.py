@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 import math
+
 from .numeric.FloatMath import float32
 
 
@@ -22,9 +23,7 @@ def YGRoundValueToPixelGrid(
         fractial += 1.0
     if math.isclose(fractial, 0.0, abs_tol=1e-4):
         scaledValue = scaledValue - fractial
-    elif math.isclose(fractial, 1.0, abs_tol=1e-4):
-        scaledValue = scaledValue - fractial + 1.0
-    elif forceCeil:
+    elif math.isclose(fractial, 1.0, abs_tol=1e-4) or forceCeil:
         scaledValue = scaledValue - fractial + 1.0
     elif forceFloor:
         scaledValue = scaledValue - fractial

@@ -13,7 +13,6 @@ from ..algorithm.FlexDirection import (
     dimension,
     flexEndEdge,
     flexStartEdge,
-    inlineEndEdge,
     inlineStartEdge,
     isRow,
     resolveCrossDirection,
@@ -31,24 +30,36 @@ from ..YGEnums import (
     YGDimension,
     YGDirection,
     YGDisplay,
+    YGEdge,
     YGErrata,
     YGFlexDirection,
     YGJustify,
-    YGEdge,
     YGPositionType,
 )
 
 
 def setFlexStartLayoutPosition(parent, child, direction, axis, containingBlockWidth):
-    position = child.style().computeFlexStartMargin(axis, direction, containingBlockWidth) + parent.getLayout().border(flexStartEdge(axis))
-    if not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding) and parent.style().display() != YGDisplay.YGDisplayGrid:
+    position = (
+        child.style().computeFlexStartMargin(axis, direction, containingBlockWidth)
+        + parent.getLayout().border(flexStartEdge(axis))
+    )
+    if (
+        not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding)
+        and parent.style().display() != YGDisplay.YGDisplayGrid
+    ):
         position += parent.getLayout().padding(flexStartEdge(axis))
     child.setLayoutPosition(position, flexStartEdge(axis))
 
 
 def setFlexEndLayoutPosition(parent, child, direction, axis, containingBlockWidth):
-    flexEndPosition = parent.getLayout().border(flexEndEdge(axis)) + child.style().computeFlexEndMargin(axis, direction, containingBlockWidth)
-    if not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding) and parent.style().display() != YGDisplay.YGDisplayGrid:
+    flexEndPosition = (
+        parent.getLayout().border(flexEndEdge(axis))
+        + child.style().computeFlexEndMargin(axis, direction, containingBlockWidth)
+    )
+    if (
+        not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding)
+        and parent.style().display() != YGDisplay.YGDisplayGrid
+    ):
         flexEndPosition += parent.getLayout().padding(flexEndEdge(axis))
     child.setLayoutPosition(getPositionOfOppositeEdge(flexEndPosition, axis, parent, child), flexStartEdge(axis))
 
@@ -59,12 +70,25 @@ def setCenterLayoutPosition(parent, child, direction, axis, containingBlockWidth
         - parent.getLayout().border(flexStartEdge(axis))
         - parent.getLayout().border(flexEndEdge(axis))
     )
-    if not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding) and parent.style().display() != YGDisplay.YGDisplayGrid:
+    if (
+        not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding)
+        and parent.style().display() != YGDisplay.YGDisplayGrid
+    ):
         parentContentBoxSize -= parent.getLayout().padding(flexStartEdge(axis))
         parentContentBoxSize -= parent.getLayout().padding(flexEndEdge(axis))
-    childOuterSize = child.getLayout().measuredDimension(dimension(axis)) + child.style().computeMarginForAxis(axis, containingBlockWidth)
-    position = (parentContentBoxSize - childOuterSize) / 2.0 + parent.getLayout().border(flexStartEdge(axis)) + child.style().computeFlexStartMargin(axis, direction, containingBlockWidth)
-    if not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding) and parent.style().display() != YGDisplay.YGDisplayGrid:
+    childOuterSize = (
+        child.getLayout().measuredDimension(dimension(axis))
+        + child.style().computeMarginForAxis(axis, containingBlockWidth)
+    )
+    position = (
+        (parentContentBoxSize - childOuterSize) / 2.0
+        + parent.getLayout().border(flexStartEdge(axis))
+        + child.style().computeFlexStartMargin(axis, direction, containingBlockWidth)
+    )
+    if (
+        not child.hasErrata(YGErrata.YGErrataAbsolutePositionWithoutInsetsExcludesPadding)
+        and parent.style().display() != YGDisplay.YGDisplayGrid
+    ):
         position += parent.getLayout().padding(flexStartEdge(axis))
     child.setLayoutPosition(position, flexStartEdge(axis))
 

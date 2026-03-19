@@ -53,7 +53,6 @@ from yoga import (  # noqa: E402
     YGNodeStyleSetPaddingPercent,
     YGNodeStyleSetPositionType,
     YGNodeStyleSetWidth,
-    YGNodeStyleSetMaxWidthPercent,
     YGPositionType,
     YGSize,
 )

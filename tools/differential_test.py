@@ -3,6 +3,7 @@ import math
 import os
 import random
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,12 +14,9 @@ CPP_SOURCE = ROOT / "tools" / "differential_cpp_runner.cpp"
 DOCKERFILE = ROOT / "tools" / "Dockerfile.yoga_cpp_runner"
 DOCKER_IMAGE = "yoga-cpp-runner:ubuntu20.04-gcc10-compat"
 
-import sys
-
 sys.path.insert(0, str(SRC))
 
 from yoga import *  # noqa: E402,F403
-
 
 EDGE_FROM_NAME = {
     "left": YGEdge.YGEdgeLeft,
@@ -111,7 +109,7 @@ GUTTER_FROM_NAME = {
     "row-gap": YGGutter.YGGutterRow,
 }
 
-MEASURE_CALLBACKS = {}
+MEASURE_CALLBACKS: dict = {}
 
 
 @dataclass

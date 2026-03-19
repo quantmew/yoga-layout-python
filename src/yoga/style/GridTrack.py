@@ -21,26 +21,26 @@ class GridTrackSize:
     infinitelyGrowable: bool = False
 
     @staticmethod
-    def auto_() -> "GridTrackSize":
+    def auto_() -> GridTrackSize:
         auto = StyleSizeLength.ofAuto()
         return GridTrackSize(auto, auto)
 
     @staticmethod
-    def length(points: float) -> "GridTrackSize":
+    def length(points: float) -> GridTrackSize:
         length = StyleSizeLength.points(points)
         return GridTrackSize(length, length)
 
     @staticmethod
-    def fr(fraction: float) -> "GridTrackSize":
+    def fr(fraction: float) -> GridTrackSize:
         return GridTrackSize(StyleSizeLength.ofAuto(), StyleSizeLength.stretch(fraction))
 
     @staticmethod
-    def percent(percentage: float) -> "GridTrackSize":
+    def percent(percentage: float) -> GridTrackSize:
         value = StyleSizeLength.percent(percentage)
         return GridTrackSize(value, value)
 
     @staticmethod
-    def minmax(minimum: StyleSizeLength, maximum: StyleSizeLength) -> "GridTrackSize":
+    def minmax(minimum: StyleSizeLength, maximum: StyleSizeLength) -> GridTrackSize:
         return GridTrackSize(minimum, maximum)
 
 

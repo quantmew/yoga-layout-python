@@ -29,7 +29,6 @@ from yoga import (  # noqa: E402
     YGNodeStyleSetWidth,
     YGUndefined,
 )
-from yoga.node.Node import Node  # noqa: E402
 
 
 def test_cloning_shared_root():

@@ -11,8 +11,8 @@ from .Baseline import *
 from .BoundAxis import *
 from .Cache import *
 from .CalculateLayout import *
-from .FlexLine import *
 from .FlexDirection import *
+from .FlexLine import *
 from .PixelGrid import *
 from .SizingMode import *
 from .TrailingPosition import *

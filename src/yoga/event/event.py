@@ -107,7 +107,7 @@ class Event:
     NodeBaselineStart = "NodeBaselineStart"
     NodeBaselineEnd = "NodeBaselineEnd"
 
-    _subscribers = []
+    _subscribers: list = []
 
     @staticmethod
     def reset() -> None:

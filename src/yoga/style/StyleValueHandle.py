@@ -38,14 +38,14 @@ class StyleValueHandle:
         self._repr = repr_
 
     @classmethod
-    def ofAuto(cls) -> "StyleValueHandle":
+    def ofAuto(cls) -> StyleValueHandle:
         """Create a handle representing 'auto'."""
         handle = cls()
         handle._set_type(cls.Type.Auto)
         return handle
 
     @classmethod
-    def ofUndefined(cls) -> "StyleValueHandle":
+    def ofUndefined(cls) -> StyleValueHandle:
         """Create a handle representing 'undefined'."""
         handle = cls()
         handle._set_type(cls.Type.Undefined)

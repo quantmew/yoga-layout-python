@@ -16,6 +16,10 @@ from ..algorithm.FlexDirection import (
     inlineStartEdge,
     isRow,
 )
+from ..debug.AssertFatal import fatalWithMessage
+from ..numeric.Comparison import maxOrDefined as maxOrDefinedFloat
+from ..numeric.FloatMath import float32
+from ..numeric.FloatOptional import FloatOptional
 from ..YGEnums import (
     YGAlign,
     YGBoxSizing,
@@ -30,10 +34,6 @@ from ..YGEnums import (
     YGPositionType,
     YGWrap,
 )
-from ..debug.AssertFatal import fatalWithMessage
-from ..numeric.FloatMath import float32
-from ..numeric.FloatOptional import FloatOptional
-from ..numeric.Comparison import maxOrDefined
 from .GridLine import GridLine
 from .GridTrack import GridTrackList, GridTrackSize
 from .StyleLength import StyleLength
@@ -65,13 +65,14 @@ def _normalize_style_size_length(value: StyleSizeLength) -> StyleSizeLength:
     if value.isFitContent():
         return StyleSizeLength.ofFitContent()
     if value.isStretch():
-        normalized_value = value.value()
+        stretch_value = value.value()
         return (
             StyleSizeLength.ofStretch()
-            if normalized_value.isUndefined()
-            else StyleSizeLength.stretch(float32(normalized_value.unwrap()))
+            if stretch_value.isUndefined()
+            else StyleSizeLength.stretch(float32(stretch_value.unwrap()))
         )
-    normalized_value = float32(value.value().unwrap())
+    value_unwrapped: float = value.value().unwrap()  # type: ignore[arg-type]
+    normalized_value: float = float32(value_unwrapped)  # type: ignore[assignment]
     return (
         StyleSizeLength.points(normalized_value)
         if value.isPoints()
@@ -521,28 +522,28 @@ class Style:
         return self.computeMargin(inlineEndEdge(axis, direction), direction).resolve(widthSize).unwrapOrDefault(0.0)
 
     def computeFlexStartBorder(self, axis: YGFlexDirection, direction: YGDirection) -> float:
-        return maxOrDefined(self.computeBorder(flexStartEdge(axis), direction).resolve(0.0).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computeBorder(flexStartEdge(axis), direction).resolve(0.0).unwrap(), 0.0)
 
     def computeInlineStartBorder(self, axis: YGFlexDirection, direction: YGDirection) -> float:
-        return maxOrDefined(self.computeBorder(inlineStartEdge(axis, direction), direction).resolve(0.0).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computeBorder(inlineStartEdge(axis, direction), direction).resolve(0.0).unwrap(), 0.0)
 
     def computeFlexEndBorder(self, axis: YGFlexDirection, direction: YGDirection) -> float:
-        return maxOrDefined(self.computeBorder(flexEndEdge(axis), direction).resolve(0.0).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computeBorder(flexEndEdge(axis), direction).resolve(0.0).unwrap(), 0.0)
 
     def computeInlineEndBorder(self, axis: YGFlexDirection, direction: YGDirection) -> float:
-        return maxOrDefined(self.computeBorder(inlineEndEdge(axis, direction), direction).resolve(0.0).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computeBorder(inlineEndEdge(axis, direction), direction).resolve(0.0).unwrap(), 0.0)
 
     def computeFlexStartPadding(self, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
-        return maxOrDefined(self.computePadding(flexStartEdge(axis), direction).resolve(widthSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computePadding(flexStartEdge(axis), direction).resolve(widthSize).unwrap(), 0.0)
 
     def computeInlineStartPadding(self, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
-        return maxOrDefined(self.computePadding(inlineStartEdge(axis, direction), direction).resolve(widthSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computePadding(inlineStartEdge(axis, direction), direction).resolve(widthSize).unwrap(), 0.0)
 
     def computeFlexEndPadding(self, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
-        return maxOrDefined(self.computePadding(flexEndEdge(axis), direction).resolve(widthSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computePadding(flexEndEdge(axis), direction).resolve(widthSize).unwrap(), 0.0)
 
     def computeInlineEndPadding(self, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
-        return maxOrDefined(self.computePadding(inlineEndEdge(axis, direction), direction).resolve(widthSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(self.computePadding(inlineEndEdge(axis, direction), direction).resolve(widthSize).unwrap(), 0.0)
 
     def computeInlineStartPaddingAndBorder(self, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
         return self.computeInlineStartPadding(axis, direction, widthSize) + self.computeInlineStartBorder(axis, direction)
@@ -582,11 +583,11 @@ class Style:
 
     def computeGapForAxis(self, axis: YGFlexDirection, ownerSize: float) -> float:
         gap = self.computeColumnGap() if isRow(axis) else self.computeRowGap()
-        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(gap.resolve(ownerSize).unwrap(), 0.0)
 
     def computeGapForDimension(self, dimension: YGDimension, ownerSize: float) -> float:
         gap = self.computeColumnGap() if dimension == YGDimension.YGDimensionWidth else self.computeRowGap()
-        return maxOrDefined(gap.resolve(ownerSize).unwrap(), 0.0)
+        return maxOrDefinedFloat(gap.resolve(ownerSize).unwrap(), 0.0)
 
     def flexStartMarginIsAuto(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
         return self.computeMargin(flexStartEdge(axis), direction).isAuto()
@@ -718,7 +719,7 @@ class Style:
             return self.pool_.get_length(edges[YGEdge.YGEdgeVertical])
         return self.pool_.get_length(edges[YGEdge.YGEdgeAll])
 
-    def computePosition(self, edge, direction: YGDirection) -> StyleLength:
+    def computePosition(self, edge: YGEdge, direction: YGDirection) -> StyleLength:
         if edge == YGEdge.YGEdgeLeft:
             return self._computeLeftEdge(self.position_, direction)
         if edge == YGEdge.YGEdgeTop:
@@ -728,8 +729,9 @@ class Style:
         if edge == YGEdge.YGEdgeBottom:
             return self._computeBottomEdge(self.position_)
         fatalWithMessage("Invalid physical edge")
+        raise AssertionError("Unreachable")  # type: ignore[return-value]
 
-    def computeMargin(self, edge, direction: YGDirection) -> StyleLength:
+    def computeMargin(self, edge: YGEdge, direction: YGDirection) -> StyleLength:
         if edge == YGEdge.YGEdgeLeft:
             return self._computeLeftEdge(self.margin_, direction)
         if edge == YGEdge.YGEdgeTop:
@@ -739,8 +741,9 @@ class Style:
         if edge == YGEdge.YGEdgeBottom:
             return self._computeBottomEdge(self.margin_)
         fatalWithMessage("Invalid physical edge")
+        raise AssertionError("Unreachable")  # type: ignore[return-value]
 
-    def computePadding(self, edge, direction: YGDirection) -> StyleLength:
+    def computePadding(self, edge: YGEdge, direction: YGDirection) -> StyleLength:
         if edge == YGEdge.YGEdgeLeft:
             return self._computeLeftEdge(self.padding_, direction)
         if edge == YGEdge.YGEdgeTop:
@@ -750,8 +753,9 @@ class Style:
         if edge == YGEdge.YGEdgeBottom:
             return self._computeBottomEdge(self.padding_)
         fatalWithMessage("Invalid physical edge")
+        raise AssertionError("Unreachable")  # type: ignore[return-value]
 
-    def computeBorder(self, edge, direction: YGDirection) -> StyleLength:
+    def computeBorder(self, edge: YGEdge, direction: YGDirection) -> StyleLength:
         if edge == YGEdge.YGEdgeLeft:
             return self._computeLeftEdge(self.border_, direction)
         if edge == YGEdge.YGEdgeTop:
@@ -761,3 +765,4 @@ class Style:
         if edge == YGEdge.YGEdgeBottom:
             return self._computeBottomEdge(self.border_)
         fatalWithMessage("Invalid physical edge")
+        raise AssertionError("Unreachable")  # type: ignore[return-value]

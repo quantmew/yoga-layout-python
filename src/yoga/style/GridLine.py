@@ -23,15 +23,15 @@ class GridLine:
     integer: int = 0
 
     @staticmethod
-    def auto_() -> "GridLine":
+    def auto_() -> GridLine:
         return GridLine(GridLineType.Auto, 0)
 
     @staticmethod
-    def fromInteger(value: int) -> "GridLine":
+    def fromInteger(value: int) -> GridLine:
         return GridLine(GridLineType.Integer, value)
 
     @staticmethod
-    def span(value: int) -> "GridLine":
+    def span(value: int) -> GridLine:
         return GridLine(GridLineType.Span, value)
 
     def isAuto(self) -> bool:

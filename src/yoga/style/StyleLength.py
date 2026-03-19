@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..numeric.Comparison import isinf, isUndefined
+from ..numeric.FloatMath import float32
+from ..numeric.FloatOptional import FloatOptional
+from ..numeric.FloatOptional import inexactEquals as inexactEqualsFloatOptional
 from ..YGEnums import YGUnit
 from ..YGValue import YGValue
-from ..numeric.FloatMath import float32
-from ..numeric.FloatOptional import FloatOptional, inexactEquals as inexactEqualsFloatOptional
-from ..numeric.Comparison import isUndefined, isinf
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class StyleLength:
     unit_: YGUnit = YGUnit.YGUnitUndefined
 
     @staticmethod
-    def points(value: float) -> "StyleLength":
+    def points(value: float) -> StyleLength:
         return (
             StyleLength.undefined()
             if isUndefined(value) or isinf(value)
@@ -30,7 +31,7 @@ class StyleLength:
         )
 
     @staticmethod
-    def percent(value: float) -> "StyleLength":
+    def percent(value: float) -> StyleLength:
         return (
             StyleLength.undefined()
             if isUndefined(value) or isinf(value)
@@ -38,11 +39,11 @@ class StyleLength:
         )
 
     @staticmethod
-    def ofAuto() -> "StyleLength":
+    def ofAuto() -> StyleLength:
         return StyleLength(FloatOptional(), YGUnit.YGUnitAuto)
 
     @staticmethod
-    def undefined() -> "StyleLength":
+    def undefined() -> StyleLength:
         return StyleLength(FloatOptional(), YGUnit.YGUnitUndefined)
 
     def isAuto(self) -> bool:
@@ -78,7 +79,7 @@ class StyleLength:
     def asYGValue(self) -> YGValue:
         return YGValue(self.value_.unwrap(), self.unit_)
 
-    def inexactEquals(self, other: "StyleLength") -> bool:
+    def inexactEquals(self, other: StyleLength) -> bool:
         return self.unit_ == other.unit_ and inexactEqualsFloatOptional(
             self.value_, other.value_
         )

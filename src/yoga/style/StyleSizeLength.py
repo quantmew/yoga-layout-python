@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..numeric.Comparison import isinf, isUndefined
+from ..numeric.FloatMath import float32
+from ..numeric.FloatOptional import FloatOptional
+from ..numeric.FloatOptional import inexactEquals as inexactEqualsFloatOptional
 from ..YGEnums import YGUnit
 from ..YGValue import YGValue
-from ..numeric.FloatMath import float32
-from ..numeric.FloatOptional import FloatOptional, inexactEquals as inexactEqualsFloatOptional
-from ..numeric.Comparison import isUndefined, isinf
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class StyleSizeLength:
     unit_: YGUnit = YGUnit.YGUnitUndefined
 
     @staticmethod
-    def points(value: float) -> "StyleSizeLength":
+    def points(value: float) -> StyleSizeLength:
         return (
             StyleSizeLength.undefined()
             if isUndefined(value) or isinf(value)
@@ -30,7 +31,7 @@ class StyleSizeLength:
         )
 
     @staticmethod
-    def percent(value: float) -> "StyleSizeLength":
+    def percent(value: float) -> StyleSizeLength:
         return (
             StyleSizeLength.undefined()
             if isUndefined(value) or isinf(value)
@@ -38,7 +39,7 @@ class StyleSizeLength:
         )
 
     @staticmethod
-    def stretch(fraction: float) -> "StyleSizeLength":
+    def stretch(fraction: float) -> StyleSizeLength:
         return (
             StyleSizeLength.undefined()
             if isUndefined(fraction) or isinf(fraction)
@@ -46,23 +47,23 @@ class StyleSizeLength:
         )
 
     @staticmethod
-    def ofAuto() -> "StyleSizeLength":
+    def ofAuto() -> StyleSizeLength:
         return StyleSizeLength(FloatOptional(), YGUnit.YGUnitAuto)
 
     @staticmethod
-    def ofMaxContent() -> "StyleSizeLength":
+    def ofMaxContent() -> StyleSizeLength:
         return StyleSizeLength(FloatOptional(), YGUnit.YGUnitMaxContent)
 
     @staticmethod
-    def ofFitContent() -> "StyleSizeLength":
+    def ofFitContent() -> StyleSizeLength:
         return StyleSizeLength(FloatOptional(), YGUnit.YGUnitFitContent)
 
     @staticmethod
-    def ofStretch() -> "StyleSizeLength":
+    def ofStretch() -> StyleSizeLength:
         return StyleSizeLength(FloatOptional(), YGUnit.YGUnitStretch)
 
     @staticmethod
-    def undefined() -> "StyleSizeLength":
+    def undefined() -> StyleSizeLength:
         return StyleSizeLength(FloatOptional(), YGUnit.YGUnitUndefined)
 
     def isAuto(self) -> bool:
@@ -107,7 +108,7 @@ class StyleSizeLength:
     def asYGValue(self) -> YGValue:
         return YGValue(self.value_.unwrap(), self.unit_)
 
-    def inexactEquals(self, other: "StyleSizeLength") -> bool:
+    def inexactEquals(self, other: StyleSizeLength) -> bool:
         return self.unit_ == other.unit_ and inexactEqualsFloatOptional(
             self.value_, other.value_
         )

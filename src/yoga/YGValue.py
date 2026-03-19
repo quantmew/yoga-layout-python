@@ -7,11 +7,10 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 from .YGEnums import YGUnit
-
 
 YGUndefined = float("nan")
 
@@ -36,7 +35,7 @@ class YGValue:
             return True
         return self.value == other.value
 
-    def __neg__(self) -> "YGValue":
+    def __neg__(self) -> YGValue:
         return YGValue(-self.value, self.unit)
 
 

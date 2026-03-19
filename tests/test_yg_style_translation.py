@@ -33,7 +33,7 @@ def test_copy_style_same():
 def test_copy_style_modified():
     node0 = YGNodeNew()
     assert YGNodeStyleGetFlexDirection(node0) == YGFlexDirection.YGFlexDirectionColumn
-    assert not (YGNodeStyleGetMaxHeight(node0).unit != 0)
+    assert YGNodeStyleGetMaxHeight(node0).unit == 0
 
     node1 = YGNodeNew()
     YGNodeStyleSetFlexDirection(node1, YGFlexDirection.YGFlexDirectionRow)

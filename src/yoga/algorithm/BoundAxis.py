@@ -8,14 +8,22 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 from ..algorithm.FlexDirection import isColumn, isRow
-from ..YGEnums import YGDimension, YGDirection, YGFlexDirection
 from ..node.Node import Node
 from ..numeric.Comparison import maxOrDefined
 from ..numeric.FloatOptional import FloatOptional
+from ..YGEnums import YGDimension, YGDirection, YGFlexDirection
 
 
-def paddingAndBorderForAxis(node: Node, axis: YGFlexDirection, direction: YGDirection, widthSize: float) -> float:
-    return node.style().computeInlineStartPaddingAndBorder(axis, direction, widthSize) + node.style().computeInlineEndPaddingAndBorder(axis, direction, widthSize)
+def paddingAndBorderForAxis(
+    node: Node,
+    axis: YGFlexDirection,
+    direction: YGDirection,
+    widthSize: float,
+) -> float:
+    return (
+        node.style().computeInlineStartPaddingAndBorder(axis, direction, widthSize)
+        + node.style().computeInlineEndPaddingAndBorder(axis, direction, widthSize)
+    )
 
 
 def boundAxisWithinMinAndMax(
@@ -29,11 +37,19 @@ def boundAxisWithinMinAndMax(
     min_value = FloatOptional()
     max_value = FloatOptional()
     if isColumn(axis):
-        min_value = node.style().resolvedMinDimension(direction, YGDimension.YGDimensionHeight, axisSize, widthSize)
-        max_value = node.style().resolvedMaxDimension(direction, YGDimension.YGDimensionHeight, axisSize, widthSize)
+        min_value = node.style().resolvedMinDimension(
+            direction, YGDimension.YGDimensionHeight, axisSize, widthSize
+        )
+        max_value = node.style().resolvedMaxDimension(
+            direction, YGDimension.YGDimensionHeight, axisSize, widthSize
+        )
     elif isRow(axis):
-        min_value = node.style().resolvedMinDimension(direction, YGDimension.YGDimensionWidth, axisSize, widthSize)
-        max_value = node.style().resolvedMaxDimension(direction, YGDimension.YGDimensionWidth, axisSize, widthSize)
+        min_value = node.style().resolvedMinDimension(
+            direction, YGDimension.YGDimensionWidth, axisSize, widthSize
+        )
+        max_value = node.style().resolvedMaxDimension(
+            direction, YGDimension.YGDimensionWidth, axisSize, widthSize
+        )
     if max_value >= FloatOptional(0.0) and value > max_value:
         return max_value
     if min_value >= FloatOptional(0.0) and value < min_value:
@@ -50,6 +66,8 @@ def boundAxis(
     widthSize: float,
 ) -> float:
     return maxOrDefined(
-        boundAxisWithinMinAndMax(node, direction, axis, FloatOptional(value), axisSize, widthSize).unwrap(),
+        boundAxisWithinMinAndMax(
+            node, direction, axis, FloatOptional(value), axisSize, widthSize
+        ).unwrap(),
         paddingAndBorderForAxis(node, axis, direction, widthSize),
     )

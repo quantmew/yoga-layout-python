@@ -43,7 +43,7 @@ def calculateFlexLine(
     startIndex: int,
     lineCount: int,
 ) -> FlexLine:
-    itemsInFlow = []
+    itemsInFlow: list = []
     sizeConsumed = float32(0.0)
     totalFlexGrowFactors = 0.0
     totalFlexShrinkScaledFactors = 0.0

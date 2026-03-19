@@ -3,7 +3,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from yoga import YGDisplay, YGNodeFreeRecursive, YGNodeInsertChild, YGNodeNew, YGNodeStyleSetDisplay  # noqa: E402
+from yoga import (  # noqa: E402
+    YGDisplay,
+    YGNodeFreeRecursive,
+    YGNodeInsertChild,
+    YGNodeNew,
+    YGNodeStyleSetDisplay,
+)
 
 
 def test_layoutable_children_single_contents_node():

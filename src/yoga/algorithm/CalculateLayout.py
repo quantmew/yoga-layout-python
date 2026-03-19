@@ -14,26 +14,17 @@ from ..algorithm.Align import fallbackAlignment, resolveChildAlignment
 from ..algorithm.Baseline import calculateBaseline, isBaselineLayout
 from ..algorithm.BoundAxis import boundAxis, boundAxisWithinMinAndMax, paddingAndBorderForAxis
 from ..algorithm.Cache import canUseCachedMeasurement
-from ..algorithm.FlexDirection import dimension, flexStartEdge, isRow, resolveCrossDirection, resolveDirection
+from ..algorithm.FlexDirection import (
+    dimension,
+    flexStartEdge,
+    isRow,
+    resolveCrossDirection,
+    resolveDirection,
+)
 from ..algorithm.FlexLine import calculateFlexLine
 from ..algorithm.PixelGrid import roundLayoutResultsToPixelGrid
 from ..algorithm.SizingMode import SizingMode
 from ..algorithm.TrailingPosition import needsTrailingPosition, setChildTrailingPosition
-from ..YGEnums import (
-    YGAlign,
-    YGDimension,
-    YGDirection,
-    YGDisplay,
-    YGEdge,
-    YGErrata,
-    YGFlexDirection,
-    YGJustify,
-    YGMeasureMode,
-    YGOverflow,
-    YGPositionType,
-    YGWrap,
-    YGExperimentalFeature,
-)
 from ..event.event import (
     Event,
     EventData,
@@ -46,10 +37,25 @@ from ..event.event import (
 )
 from ..node.LayoutResults import LayoutResults
 from ..node.Node import Node
-from ..numeric.FloatMath import float32, floatDivision
 from ..numeric.Comparison import inexactEquals, isDefined, isUndefined, maxOrDefined, minOrDefined
-from ..numeric.FloatOptional import FloatOptional, maxOrDefined as maxOrDefinedFloatOptional
-
+from ..numeric.FloatMath import float32, floatDivision
+from ..numeric.FloatOptional import FloatOptional
+from ..numeric.FloatOptional import maxOrDefined as maxOrDefinedFloatOptional
+from ..YGEnums import (
+    YGAlign,
+    YGDimension,
+    YGDirection,
+    YGDisplay,
+    YGEdge,
+    YGErrata,
+    YGExperimentalFeature,
+    YGFlexDirection,
+    YGJustify,
+    YGMeasureMode,
+    YGOverflow,
+    YGPositionType,
+    YGWrap,
+)
 
 gCurrentGenerationCount = 0
 
@@ -1283,30 +1289,30 @@ def calculateLayoutImpl(
             - paddingAndBorderAxisCross
         )
         remainingAlignContentDim = innerCrossDim - totalLineCrossDim
-        alignContent = (
+        alignContentValue: YGAlign = (
             node.style().alignContent()
             if remainingAlignContentDim >= 0
-            else fallbackAlignment(node.style().alignContent())
+            else fallbackAlignment(node.style().alignContent())  # type: ignore[assignment]
         )
-        if alignContent == YGAlign.YGAlignFlexEnd:
+        if alignContentValue == YGAlign.YGAlignFlexEnd:
             currentLead += remainingAlignContentDim
-        elif alignContent == YGAlign.YGAlignCenter:
+        elif alignContentValue == YGAlign.YGAlignCenter:
             currentLead += remainingAlignContentDim / 2
-        elif alignContent == YGAlign.YGAlignStretch:
+        elif alignContentValue == YGAlign.YGAlignStretch:
             extraSpacePerLine = floatDivision(
                 remainingAlignContentDim, float(lineCount)
             )
-        elif alignContent == YGAlign.YGAlignSpaceAround:
+        elif alignContentValue == YGAlign.YGAlignSpaceAround:
             currentLead += floatDivision(
                 remainingAlignContentDim, 2 * float(lineCount)
             )
             leadPerLine = floatDivision(
                 remainingAlignContentDim, float(lineCount)
             )
-        elif alignContent == YGAlign.YGAlignSpaceEvenly:
+        elif alignContentValue == YGAlign.YGAlignSpaceEvenly:
             currentLead += remainingAlignContentDim / float(lineCount + 1)
             leadPerLine = remainingAlignContentDim / float(lineCount + 1)
-        elif alignContent == YGAlign.YGAlignSpaceBetween and lineCount > 1:
+        elif alignContentValue == YGAlign.YGAlignSpaceBetween and lineCount > 1:
             leadPerLine = remainingAlignContentDim / float(lineCount - 1)
         endIndex = 0
         for i in range(lineCount):

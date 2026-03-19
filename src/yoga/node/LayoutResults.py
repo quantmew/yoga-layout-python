@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..YGEnums import YGDimension, YGDirection, YGEdge
+from ..numeric.Comparison import inexactEquals, isUndefined
 from ..numeric.FloatMath import float32
 from ..numeric.FloatOptional import FloatOptional
-from ..numeric.Comparison import inexactEquals, isUndefined
+from ..YGEnums import YGDimension, YGDirection, YGEdge
 from .CachedMeasurement import CachedMeasurement
 
 

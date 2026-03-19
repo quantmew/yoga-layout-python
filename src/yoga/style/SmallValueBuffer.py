@@ -8,7 +8,6 @@ LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -44,7 +43,7 @@ class SmallValueBuffer:
             msb = value >> 32
 
             lsb_index = self._push_internal(lsb)
-            msb_index = self._push_internal(msb)
+            self._push_internal(msb)  # msb_index unused
 
             # Mark the LSB as wide
             if lsb_index < self.buffer_size:
@@ -122,7 +121,7 @@ class SmallValueBuffer:
         msb = self.get32(index + 1)
         return (msb << 32) | lsb
 
-    def copy(self) -> "SmallValueBuffer":
+    def copy(self) -> SmallValueBuffer:
         """Create a copy of this buffer."""
         new_buffer = SmallValueBuffer(buffer_size=self.buffer_size)
         new_buffer.buffer = self.buffer.copy()
