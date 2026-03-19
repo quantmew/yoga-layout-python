@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yoga-layout-python"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Pure Python port of Meta Yoga layout engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,7 +13,7 @@ authors = [
   {name = "Meta Platforms, Inc. and affiliates."}
 ]
 maintainers = [
-  {name = "Yoga Contributors"}
+  {name = "Quantmew Contributors"}
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -43,12 +43,15 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/facebook/yoga"
-Repository = "https://github.com/facebook/yoga"
+Homepage = "https://github.com/quantmew/yoga-layout-python"
+Repository = "https://github.com/quantmew/yoga-layout-python"
 Documentation = "https://yogalayout.dev/"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = {attr = "yoga.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
