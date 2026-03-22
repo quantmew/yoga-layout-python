@@ -1,3 +1,4 @@
+# cython: infer_types=False
 """
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
@@ -7,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
+from .._cython_compat import cython
 from ..algorithm.SizingMode import SizingMode
 from ..numeric.Comparison import inexactEquals, isDefined
 from ..YGPixelGrid import YGRoundValueToPixelGrid
@@ -45,6 +47,18 @@ def newSizeIsStricterAndStillValid(
     )
 
 
+@cython.locals(
+    pointScaleFactor=cython.double,
+    useRoundedComparison=cython.bint,
+    effectiveWidth=cython.double,
+    effectiveHeight=cython.double,
+    effectiveLastWidth=cython.double,
+    effectiveLastHeight=cython.double,
+    hasSameWidthSpec=cython.bint,
+    hasSameHeightSpec=cython.bint,
+    widthIsCompatible=cython.bint,
+    heightIsCompatible=cython.bint,
+)
 def canUseCachedMeasurement(
     widthMode: SizingMode,
     availableWidth: float,
@@ -90,4 +104,3 @@ def canUseCachedMeasurement(
     )
 
     return widthIsCompatible and heightIsCompatible
-

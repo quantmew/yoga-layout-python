@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .._cython_compat import cython
+
 from ..algorithm.FlexDirection import (
     flexEndEdge,
     flexStartEdge,
@@ -427,6 +429,7 @@ class Style:
     def setBoxSizing(self, value: YGBoxSizing) -> None:
         self.boxSizing_ = value
 
+    @cython.locals(dimensionPaddingAndBorderValue=cython.double)
     def resolvedMinDimension(
         self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
     ) -> FloatOptional:
@@ -434,13 +437,13 @@ class Style:
         if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
             return value
 
-        dimensionPaddingAndBorder = FloatOptional(
-            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
-        )
+        dimensionPaddingAndBorderValue = self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
+        dimensionPaddingAndBorder = FloatOptional(dimensionPaddingAndBorderValue)
         return value + (
             dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
         )
 
+    @cython.locals(dimensionPaddingAndBorderValue=cython.double)
     def resolvedMaxDimension(
         self, direction: YGDirection, axis: YGDimension, referenceLength: float, ownerWidth: float
     ) -> FloatOptional:
@@ -448,9 +451,8 @@ class Style:
         if self.boxSizing() == YGBoxSizing.YGBoxSizingBorderBox:
             return value
 
-        dimensionPaddingAndBorder = FloatOptional(
-            self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
-        )
+        dimensionPaddingAndBorderValue = self.computePaddingAndBorderForDimension(direction, axis, ownerWidth)
+        dimensionPaddingAndBorder = FloatOptional(dimensionPaddingAndBorderValue)
         return value + (
             dimensionPaddingAndBorder if dimensionPaddingAndBorder.isDefined() else FloatOptional(0.0)
         )
@@ -576,10 +578,11 @@ class Style:
             axis, YGDirection.YGDirectionLTR
         )
 
+    @cython.locals(startMargin=cython.double, endMargin=cython.double)
     def computeMarginForAxis(self, axis: YGFlexDirection, widthSize: float) -> float:
-        return self.computeInlineStartMargin(axis, YGDirection.YGDirectionLTR, widthSize) + self.computeInlineEndMargin(
-            axis, YGDirection.YGDirectionLTR, widthSize
-        )
+        startMargin = self.computeInlineStartMargin(axis, YGDirection.YGDirectionLTR, widthSize)
+        endMargin = self.computeInlineEndMargin(axis, YGDirection.YGDirectionLTR, widthSize)
+        return startMargin + endMargin
 
     def computeGapForAxis(self, axis: YGFlexDirection, ownerSize: float) -> float:
         gap = self.computeColumnGap() if isRow(axis) else self.computeRowGap()
@@ -590,10 +593,12 @@ class Style:
         return maxOrDefinedFloat(gap.resolve(ownerSize).unwrap(), 0.0)
 
     def flexStartMarginIsAuto(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
-        return self.computeMargin(flexStartEdge(axis), direction).isAuto()
+        margin = self.computeMargin(flexStartEdge(axis), direction)
+        return margin.isAuto()
 
     def flexEndMarginIsAuto(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
-        return self.computeMargin(flexEndEdge(axis), direction).isAuto()
+        margin = self.computeMargin(flexEndEdge(axis), direction)
+        return margin.isAuto()
 
     def inlineStartMarginIsAuto(self, axis: YGFlexDirection, direction: YGDirection) -> bool:
         return self.computeMargin(inlineStartEdge(axis, direction), direction).isAuto()

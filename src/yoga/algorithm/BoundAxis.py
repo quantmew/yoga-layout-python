@@ -1,3 +1,4 @@
+# cython: infer_types=False
 """
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
@@ -7,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
+from .._cython_compat import cython
 from ..algorithm.FlexDirection import isColumn, isRow
 from ..node.Node import Node
 from ..numeric.Comparison import maxOrDefined
@@ -14,16 +16,18 @@ from ..numeric.FloatOptional import FloatOptional
 from ..YGEnums import YGDimension, YGDirection, YGFlexDirection
 
 
+@cython.locals(result=cython.double)
 def paddingAndBorderForAxis(
     node: Node,
     axis: YGFlexDirection,
     direction: YGDirection,
     widthSize: float,
 ) -> float:
-    return (
+    result = (
         node.style().computeInlineStartPaddingAndBorder(axis, direction, widthSize)
         + node.style().computeInlineEndPaddingAndBorder(axis, direction, widthSize)
     )
+    return result
 
 
 def boundAxisWithinMinAndMax(

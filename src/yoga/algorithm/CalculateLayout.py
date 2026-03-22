@@ -1,3 +1,4 @@
+# cython: infer_types=False
 """
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 from math import isnan
 
+from .._cython_compat import cython
 from ..algorithm.AbsoluteLayout import layoutAbsoluteDescendants
 from ..algorithm.Align import fallbackAlignment, resolveChildAlignment
 from ..algorithm.Baseline import calculateBaseline, isBaselineLayout
@@ -60,6 +62,7 @@ from ..YGEnums import (
 gCurrentGenerationCount = 0
 
 
+@cython.locals(size=cython.double, margin=cython.double)
 def constrainMaxSizeForMode(
     node: Node,
     direction: YGDirection,
@@ -69,12 +72,16 @@ def constrainMaxSizeForMode(
     mode: SizingMode,
     size: float,
 ) -> tuple[SizingMode, float]:
-    maxSize = node.style().resolvedMaxDimension(
+    nodeStyle = node.style()
+    dimensionValue = YGDimension.YGDimensionWidth if isRow(axis) else YGDimension.YGDimensionHeight
+    maxDimension = nodeStyle.resolvedMaxDimension(
         direction,
-        YGDimension.YGDimensionWidth if isRow(axis) else YGDimension.YGDimensionHeight,
+        dimensionValue,
         ownerAxisSize,
         ownerWidth,
-    ) + FloatOptional(node.style().computeMarginForAxis(axis, ownerWidth))
+    )
+    margin = nodeStyle.computeMarginForAxis(axis, ownerWidth)
+    maxSize = maxDimension + FloatOptional(margin)
     if mode in (SizingMode.StretchFit, SizingMode.FitContent):
         size = size if maxSize.isUndefined() or size < maxSize.unwrap() else maxSize.unwrap()
     elif mode == SizingMode.MaxContent and maxSize.isDefined():
@@ -83,6 +90,19 @@ def constrainMaxSizeForMode(
     return mode, size
 
 
+@cython.locals(
+    mainAxisSize=cython.double,
+    mainAxisOwnerSize=cython.double,
+    childWidth=cython.double,
+    childHeight=cython.double,
+    marginRow=cython.double,
+    marginColumn=cython.double,
+    hasExactWidth=cython.bint,
+    childWidthStretch=cython.bint,
+    hasExactHeight=cython.bint,
+    childHeightStretch=cython.bint,
+    alignStretch=cython.bint,
+)
 def computeFlexBasisForChild(
     node: Node,
     child: Node,
@@ -97,7 +117,11 @@ def computeFlexBasisForChild(
     depth: int,
     generationCount: int,
 ) -> None:
-    mainAxis = resolveDirection(node.style().flexDirection(), direction)
+    nodeStyle = node.style()
+    childStyle = child.style()
+    childLayout = child.getLayout()
+    childConfig = child.getConfig()
+    mainAxis = resolveDirection(nodeStyle.flexDirection(), direction)
     isMainAxisRow = isRow(mainAxis)
     mainAxisSize = width if isMainAxisRow else height
     mainAxisOwnerSize = ownerWidth if isMainAxisRow else ownerHeight
@@ -106,11 +130,13 @@ def computeFlexBasisForChild(
     resolvedFlexBasis = child.resolveFlexBasis(direction, mainAxis, mainAxisOwnerSize, ownerWidth)
     isRowStyleDimDefined = child.hasDefiniteLength(YGDimension.YGDimensionWidth, ownerWidth)
     isColumnStyleDimDefined = child.hasDefiniteLength(YGDimension.YGDimensionHeight, ownerHeight)
+    overflow = nodeStyle.overflow()
+    alignStretch = resolveChildAlignment(node, child) == YGAlign.YGAlignStretch
 
     if resolvedFlexBasis.isDefined() and isDefined(mainAxisSize):
-        if child.getLayout().computedFlexBasis.isUndefined() or (
-            child.getConfig().isExperimentalFeatureEnabled(YGExperimentalFeature.YGExperimentalFeatureWebFlexBasis)
-            and child.getLayout().computedFlexBasisGeneration != generationCount
+        if childLayout.computedFlexBasis.isUndefined() or (
+            childConfig.isExperimentalFeatureEnabled(YGExperimentalFeature.YGExperimentalFeatureWebFlexBasis)
+            and childLayout.computedFlexBasisGeneration != generationCount
         ):
             paddingAndBorder = FloatOptional(paddingAndBorderForAxis(child, mainAxis, direction, ownerWidth))
             child.setLayoutComputedFlexBasis(
@@ -143,8 +169,8 @@ def computeFlexBasisForChild(
         # basis).
         childWidthSizingMode = SizingMode.MaxContent
         childHeightSizingMode = SizingMode.MaxContent
-        marginRow = child.style().computeMarginForAxis(YGFlexDirection.YGFlexDirectionRow, ownerWidth)
-        marginColumn = child.style().computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, ownerWidth)
+        marginRow = childStyle.computeMarginForAxis(YGFlexDirection.YGFlexDirectionRow, ownerWidth)
+        marginColumn = childStyle.computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, ownerWidth)
         if isRowStyleDimDefined:
             childWidth = child.getResolvedDimension(direction, YGDimension.YGDimensionWidth, ownerWidth, ownerWidth).unwrap() + marginRow
             childWidthSizingMode = SizingMode.StretchFit
@@ -153,43 +179,43 @@ def computeFlexBasisForChild(
             childHeightSizingMode = SizingMode.StretchFit
         # The W3C spec doesn't say anything about the 'overflow' property, but all
         # major browsers appear to implement the following logic.
-        if ((not isMainAxisRow) and node.style().overflow() == YGOverflow.YGOverflowScroll) or (
-            node.style().overflow() != YGOverflow.YGOverflowScroll
+        if ((not isMainAxisRow) and overflow == YGOverflow.YGOverflowScroll) or (
+            overflow != YGOverflow.YGOverflowScroll
         ):
             if isUndefined(childWidth) and isDefined(width):
                 childWidth = width
                 childWidthSizingMode = SizingMode.FitContent
-        if (isMainAxisRow and node.style().overflow() == YGOverflow.YGOverflowScroll) or (
-            node.style().overflow() != YGOverflow.YGOverflowScroll
+        if (isMainAxisRow and overflow == YGOverflow.YGOverflowScroll) or (
+            overflow != YGOverflow.YGOverflowScroll
         ):
             if isUndefined(childHeight) and isDefined(height):
                 childHeight = height
                 childHeightSizingMode = SizingMode.FitContent
-        childStyle = child.style()
-        if childStyle.aspectRatio().isDefined():
+        childAspectRatio = childStyle.aspectRatio()
+        if childAspectRatio.isDefined():
             if (not isMainAxisRow) and childWidthSizingMode == SizingMode.StretchFit:
-                childHeight = marginColumn + (childWidth - marginRow) / childStyle.aspectRatio().unwrap()
+                childHeight = marginColumn + (childWidth - marginRow) / childAspectRatio.unwrap()
                 childHeightSizingMode = SizingMode.StretchFit
             elif isMainAxisRow and childHeightSizingMode == SizingMode.StretchFit:
-                childWidth = marginRow + (childHeight - marginColumn) * childStyle.aspectRatio().unwrap()
+                childWidth = marginRow + (childHeight - marginColumn) * childAspectRatio.unwrap()
                 childWidthSizingMode = SizingMode.StretchFit
         # If child has no defined size in the cross axis and is set to stretch, set
         # the cross axis to be measured exactly with the available inner width
         hasExactWidth = isDefined(width) and widthMode == SizingMode.StretchFit
-        childWidthStretch = resolveChildAlignment(node, child) == YGAlign.YGAlignStretch and childWidthSizingMode != SizingMode.StretchFit
+        childWidthStretch = alignStretch and childWidthSizingMode != SizingMode.StretchFit
         if (not isMainAxisRow) and (not isRowStyleDimDefined) and hasExactWidth and childWidthStretch:
             childWidth = width
             childWidthSizingMode = SizingMode.StretchFit
-            if childStyle.aspectRatio().isDefined():
-                childHeight = (childWidth - marginRow) / childStyle.aspectRatio().unwrap()
+            if childAspectRatio.isDefined():
+                childHeight = (childWidth - marginRow) / childAspectRatio.unwrap()
                 childHeightSizingMode = SizingMode.StretchFit
         hasExactHeight = isDefined(height) and heightMode == SizingMode.StretchFit
-        childHeightStretch = resolveChildAlignment(node, child) == YGAlign.YGAlignStretch and childHeightSizingMode != SizingMode.StretchFit
+        childHeightStretch = alignStretch and childHeightSizingMode != SizingMode.StretchFit
         if isMainAxisRow and (not isColumnStyleDimDefined) and hasExactHeight and childHeightStretch:
             childHeight = height
             childHeightSizingMode = SizingMode.StretchFit
-            if childStyle.aspectRatio().isDefined():
-                childWidth = (childHeight - marginColumn) * childStyle.aspectRatio().unwrap()
+            if childAspectRatio.isDefined():
+                childWidth = (childHeight - marginColumn) * childAspectRatio.unwrap()
                 childWidthSizingMode = SizingMode.StretchFit
         childWidthSizingMode, childWidth = constrainMaxSizeForMode(
             child, direction, YGFlexDirection.YGFlexDirectionRow, ownerWidth, ownerWidth, childWidthSizingMode, childWidth
@@ -525,6 +551,24 @@ def distributeFreeSpaceFirstPass(
     )
 
 
+@cython.locals(
+    deltaFreeSpace=cython.double,
+    childFlexBasis=cython.double,
+    updatedMainSize=cython.double,
+    flexShrinkScaledFactor=cython.double,
+    childSize=cython.double,
+    flexGrowFactor=cython.double,
+    growRatio=cython.double,
+    marginMain=cython.double,
+    marginCross=cython.double,
+    childCrossSize=cython.double,
+    childMainSize=cython.double,
+    hasDefiniteCrossLength=cython.bint,
+    crossStartMarginAuto=cython.bint,
+    crossEndMarginAuto=cython.bint,
+    requiresStretchLayout=cython.bint,
+    isNodeFlexWrap=cython.bint,
+)
 def distributeFreeSpaceSecondPass(
     flexLine,
     node: Node,
@@ -546,14 +590,18 @@ def distributeFreeSpaceSecondPass(
 ) -> float:
     deltaFreeSpace = float32(0.0)
     isMainAxisRow = isRow(mainAxis)
-    isNodeFlexWrap = node.style().flexWrap() != getattr(node.style().flexWrap().__class__, "YGWrapNoWrap", node.style().flexWrap())
+    nodeStyle = node.style()
+    nodeLayout = node.getLayout()
+    isNodeFlexWrap = nodeStyle.flexWrap() != YGWrap.YGWrapNoWrap
     for currentLineChild in flexLine.itemsInFlow:
+        childStyle = currentLineChild.style()
+        childLayout = currentLineChild.getLayout()
         childFlexBasis = float32(
             boundAxisWithinMinAndMax(
             currentLineChild,
             direction,
             mainAxis,
-            currentLineChild.getLayout().computedFlexBasis,
+            childLayout.computedFlexBasis,
             mainAxisOwnerSize,
             ownerWidth,
             ).unwrap()
@@ -612,17 +660,20 @@ def distributeFreeSpaceSecondPass(
         deltaFreeSpace = float32(
             deltaFreeSpace + float32(updatedMainSize - childFlexBasis)
         )
-        marginMain = currentLineChild.style().computeMarginForAxis(mainAxis, availableInnerWidth)
-        marginCross = currentLineChild.style().computeMarginForAxis(crossAxis, availableInnerWidth)
+        marginMain = childStyle.computeMarginForAxis(mainAxis, availableInnerWidth)
+        marginCross = childStyle.computeMarginForAxis(crossAxis, availableInnerWidth)
         childCrossSize = float("nan")
         childMainSize = updatedMainSize + marginMain
-        childStyle = currentLineChild.style()
         childMainSizingMode = SizingMode.StretchFit
-        if childStyle.aspectRatio().isDefined():
+        childAspectRatio = childStyle.aspectRatio()
+        alignChild = resolveChildAlignment(node, currentLineChild)
+        crossStartMarginAuto = childStyle.flexStartMarginIsAuto(crossAxis, direction)
+        crossEndMarginAuto = childStyle.flexEndMarginIsAuto(crossAxis, direction)
+        if childAspectRatio.isDefined():
             childCrossSize = (
-                (childMainSize - marginMain) / childStyle.aspectRatio().unwrap()
+                (childMainSize - marginMain) / childAspectRatio.unwrap()
                 if isMainAxisRow
-                else (childMainSize - marginMain) * childStyle.aspectRatio().unwrap()
+                else (childMainSize - marginMain) * childAspectRatio.unwrap()
             )
             childCrossSizingMode = SizingMode.StretchFit
             childCrossSize += marginCross
@@ -634,9 +685,9 @@ def distributeFreeSpaceSecondPass(
             )
             and sizingModeCrossDim == SizingMode.StretchFit
             and not (isNodeFlexWrap and mainAxisOverflows)
-            and resolveChildAlignment(node, currentLineChild) == YGAlign.YGAlignStretch
-            and not currentLineChild.style().flexStartMarginIsAuto(crossAxis, direction)
-            and not currentLineChild.style().flexEndMarginIsAuto(crossAxis, direction)
+            and alignChild == YGAlign.YGAlignStretch
+            and not crossStartMarginAuto
+            and not crossEndMarginAuto
         ):
             childCrossSize = availableInnerCrossDim
             childCrossSizingMode = SizingMode.StretchFit
@@ -668,9 +719,9 @@ def distributeFreeSpaceSecondPass(
         childCrossSizingMode, childCrossSize = constrainMaxSizeForMode(currentLineChild, direction, crossAxis, availableInnerCrossDim, availableInnerWidth, childCrossSizingMode, childCrossSize)
         requiresStretchLayout = (
             not currentLineChild.hasDefiniteLength(YGDimension.YGDimensionHeight if isMainAxisRow else YGDimension.YGDimensionWidth, availableInnerCrossDim)
-            and resolveChildAlignment(node, currentLineChild) == YGAlign.YGAlignStretch
-            and not currentLineChild.style().flexStartMarginIsAuto(crossAxis, direction)
-            and not currentLineChild.style().flexEndMarginIsAuto(crossAxis, direction)
+            and alignChild == YGAlign.YGAlignStretch
+            and not crossStartMarginAuto
+            and not crossEndMarginAuto
         )
         childWidth = childMainSize if isMainAxisRow else childCrossSize
         childHeight = childMainSize if not isMainAxisRow else childCrossSize
@@ -692,7 +743,7 @@ def distributeFreeSpaceSecondPass(
             depth,
             generationCount,
         )
-        node.setLayoutHadOverflow(node.getLayout().hadOverflow() or currentLineChild.getLayout().hadOverflow())
+        nodeLayout.setHadOverflow(nodeLayout.hadOverflow() or childLayout.hadOverflow())
     return deltaFreeSpace
 
 
@@ -749,6 +800,23 @@ def resolveFlexibleLength(
     )
 
 
+@cython.locals(
+    leadingPaddingAndBorderMain=cython.double,
+    trailingPaddingAndBorderMain=cython.double,
+    gap=cython.double,
+    minAvailableMainDim=cython.double,
+    occupiedSpaceByChildNodes=cython.double,
+    leadingMainDim=cython.double,
+    betweenMainDim=cython.double,
+    maxAscentForCurrentLine=cython.double,
+    maxDescentForCurrentLine=cython.double,
+    lastChildIndex=cython.Py_ssize_t,
+    canSkipFlex=cython.bint,
+    ascent=cython.double,
+    descent=cython.double,
+    startMarginAuto=cython.bint,
+    endMarginAuto=cython.bint,
+)
 def justifyMainAxis(
     node: Node,
     flexLine,
@@ -783,10 +851,11 @@ def justifyMainAxis(
             flexLine.layout.remainingFreeSpace = 0.0
     leadingMainDim = 0.0
     betweenMainDim = gap
+    nodeJustifyContent = style.justifyContent()
     justifyContent = (
-        node.style().justifyContent()
+        nodeJustifyContent
         if flexLine.layout.remainingFreeSpace >= 0
-        else fallbackAlignment(node.style().justifyContent())
+        else fallbackAlignment(nodeJustifyContent)
     )
     if flexLine.numberOfAutoMargins == 0:
         if justifyContent == YGJustify.YGJustifyCenter:
@@ -813,36 +882,40 @@ def justifyMainAxis(
     maxAscentForCurrentLine = 0.0
     maxDescentForCurrentLine = 0.0
     nodeBaselineLayout = isBaselineLayout(node)
+    lastChildIndex = len(flexLine.itemsInFlow) - 1
     for child in flexLine.itemsInFlow:
         childLayout = child.getLayout()
-        if child.style().flexStartMarginIsAuto(mainAxis, direction) and flexLine.layout.remainingFreeSpace > 0.0:
+        childStyle = child.style()
+        startMarginAuto = childStyle.flexStartMarginIsAuto(mainAxis, direction)
+        endMarginAuto = childStyle.flexEndMarginIsAuto(mainAxis, direction)
+        if startMarginAuto and flexLine.layout.remainingFreeSpace > 0.0:
             flexLine.layout.mainDim += flexLine.layout.remainingFreeSpace / float(flexLine.numberOfAutoMargins)
         if performLayout:
             child.setLayoutPosition(
                 childLayout.position(flexStartEdge(mainAxis)) + flexLine.layout.mainDim,
                 flexStartEdge(mainAxis),
             )
-        if child is not flexLine.itemsInFlow[-1]:
+        if lastChildIndex > 0 and child is not flexLine.itemsInFlow[lastChildIndex]:
             flexLine.layout.mainDim += betweenMainDim
-        if child.style().flexEndMarginIsAuto(mainAxis, direction) and flexLine.layout.remainingFreeSpace > 0.0:
+        if endMarginAuto and flexLine.layout.remainingFreeSpace > 0.0:
             flexLine.layout.mainDim += flexLine.layout.remainingFreeSpace / float(flexLine.numberOfAutoMargins)
         canSkipFlex = (not performLayout) and sizingModeCrossDim == SizingMode.StretchFit
         if canSkipFlex:
             flexLine.layout.mainDim = float32(
                 flexLine.layout.mainDim
-                + child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+                + childStyle.computeMarginForAxis(mainAxis, availableInnerWidth)
                 + childLayout.computedFlexBasis.unwrap()
             )
             flexLine.layout.crossDim = availableInnerCrossDim
         else:
             flexLine.layout.mainDim += child.dimensionWithMargin(mainAxis, availableInnerWidth)
             if nodeBaselineLayout:
-                ascent = calculateBaseline(child) + child.style().computeFlexStartMargin(
+                ascent = calculateBaseline(child) + childStyle.computeFlexStartMargin(
                     YGFlexDirection.YGFlexDirectionColumn, direction, availableInnerWidth
                 )
                 descent = (
-                    child.getLayout().measuredDimension(YGDimension.YGDimensionHeight)
-                    + child.style().computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, availableInnerWidth)
+                    childLayout.measuredDimension(YGDimension.YGDimensionHeight)
+                    + childStyle.computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, availableInnerWidth)
                     - ascent
                 )
                 maxAscentForCurrentLine = maxOrDefined(maxAscentForCurrentLine, ascent)
@@ -854,6 +927,8 @@ def justifyMainAxis(
     flexLine.layout.mainDim += trailingPaddingAndBorderMain
     if nodeBaselineLayout:
         flexLine.layout.crossDim = maxAscentForCurrentLine + maxDescentForCurrentLine
+
+
 def calculateLayout(node: Node, ownerWidth: float, ownerHeight: float, ownerDirection: YGDirection) -> None:
     global gCurrentGenerationCount
     Event.publish(node, Event.LayoutPassStart, EventData())
@@ -927,30 +1002,31 @@ def calculateLayoutImpl(
         layoutMarkerData.layouts += 1
     else:
         layoutMarkerData.measures += 1
+    style = node.style()
     direction = node.resolveDirection(ownerDirection)
     node.setLayoutDirection(direction)
     flexRowDirection = resolveDirection(YGFlexDirection.YGFlexDirectionRow, direction)
     flexColumnDirection = resolveDirection(YGFlexDirection.YGFlexDirectionColumn, direction)
     startEdge = YGEdge.YGEdgeLeft if direction == YGDirection.YGDirectionLTR else YGEdge.YGEdgeRight
     endEdge = YGEdge.YGEdgeRight if direction == YGDirection.YGDirectionLTR else YGEdge.YGEdgeLeft
-    marginRowLeading = node.style().computeInlineStartMargin(flexRowDirection, direction, ownerWidth)
+    marginRowLeading = style.computeInlineStartMargin(flexRowDirection, direction, ownerWidth)
     node.setLayoutMargin(marginRowLeading, startEdge)
-    marginRowTrailing = node.style().computeInlineEndMargin(flexRowDirection, direction, ownerWidth)
+    marginRowTrailing = style.computeInlineEndMargin(flexRowDirection, direction, ownerWidth)
     node.setLayoutMargin(marginRowTrailing, endEdge)
-    marginColumnLeading = node.style().computeInlineStartMargin(flexColumnDirection, direction, ownerWidth)
+    marginColumnLeading = style.computeInlineStartMargin(flexColumnDirection, direction, ownerWidth)
     node.setLayoutMargin(marginColumnLeading, YGEdge.YGEdgeTop)
-    marginColumnTrailing = node.style().computeInlineEndMargin(flexColumnDirection, direction, ownerWidth)
+    marginColumnTrailing = style.computeInlineEndMargin(flexColumnDirection, direction, ownerWidth)
     node.setLayoutMargin(marginColumnTrailing, YGEdge.YGEdgeBottom)
     marginAxisRow = marginRowLeading + marginRowTrailing
     marginAxisColumn = marginColumnLeading + marginColumnTrailing
-    node.setLayoutBorder(node.style().computeInlineStartBorder(flexRowDirection, direction), startEdge)
-    node.setLayoutBorder(node.style().computeInlineEndBorder(flexRowDirection, direction), endEdge)
-    node.setLayoutBorder(node.style().computeInlineStartBorder(flexColumnDirection, direction), YGEdge.YGEdgeTop)
-    node.setLayoutBorder(node.style().computeInlineEndBorder(flexColumnDirection, direction), YGEdge.YGEdgeBottom)
-    node.setLayoutPadding(node.style().computeInlineStartPadding(flexRowDirection, direction, ownerWidth), startEdge)
-    node.setLayoutPadding(node.style().computeInlineEndPadding(flexRowDirection, direction, ownerWidth), endEdge)
-    node.setLayoutPadding(node.style().computeInlineStartPadding(flexColumnDirection, direction, ownerWidth), YGEdge.YGEdgeTop)
-    node.setLayoutPadding(node.style().computeInlineEndPadding(flexColumnDirection, direction, ownerWidth), YGEdge.YGEdgeBottom)
+    node.setLayoutBorder(style.computeInlineStartBorder(flexRowDirection, direction), startEdge)
+    node.setLayoutBorder(style.computeInlineEndBorder(flexRowDirection, direction), endEdge)
+    node.setLayoutBorder(style.computeInlineStartBorder(flexColumnDirection, direction), YGEdge.YGEdgeTop)
+    node.setLayoutBorder(style.computeInlineEndBorder(flexColumnDirection, direction), YGEdge.YGEdgeBottom)
+    node.setLayoutPadding(style.computeInlineStartPadding(flexRowDirection, direction, ownerWidth), startEdge)
+    node.setLayoutPadding(style.computeInlineEndPadding(flexRowDirection, direction, ownerWidth), endEdge)
+    node.setLayoutPadding(style.computeInlineStartPadding(flexColumnDirection, direction, ownerWidth), YGEdge.YGEdgeTop)
+    node.setLayoutPadding(style.computeInlineEndPadding(flexColumnDirection, direction, ownerWidth), YGEdge.YGEdgeBottom)
     if node.hasMeasureFunc():
         measureNodeWithMeasureFunc(
             node,
@@ -1167,23 +1243,27 @@ def calculateLayoutImpl(
             for child in flexLine.itemsInFlow:
                 leadingCrossDim = leadingPaddingAndBorderCross
                 alignItem = resolveChildAlignment(node, child)
+                childStyle = child.style()
+                childLayout = child.getLayout()
+                startMarginAuto = childStyle.flexStartMarginIsAuto(crossAxis, direction)
+                endMarginAuto = childStyle.flexEndMarginIsAuto(crossAxis, direction)
                 if (
                     alignItem == YGAlign.YGAlignStretch
-                    and not child.style().flexStartMarginIsAuto(crossAxis, direction)
-                    and not child.style().flexEndMarginIsAuto(crossAxis, direction)
+                    and not startMarginAuto
+                    and not endMarginAuto
                 ):
                     if not child.hasDefiniteLength(dimension(crossAxis), availableInnerCrossDim):
-                        childMainSize = child.getLayout().measuredDimension(dimension(mainAxis))
-                        childStyle = child.style()
-                        if childStyle.aspectRatio().isDefined():
-                            childCrossSize = child.style().computeMarginForAxis(crossAxis, availableInnerWidth) + (
-                                childMainSize / childStyle.aspectRatio().unwrap()
+                        childMainSize = childLayout.measuredDimension(dimension(mainAxis))
+                        childAspectRatio = childStyle.aspectRatio()
+                        if childAspectRatio.isDefined():
+                            childCrossSize = childStyle.computeMarginForAxis(crossAxis, availableInnerWidth) + (
+                                childMainSize / childAspectRatio.unwrap()
                                 if isMainAxisRow
-                                else childMainSize * childStyle.aspectRatio().unwrap()
+                                else childMainSize * childAspectRatio.unwrap()
                             )
                         else:
                             childCrossSize = flexLine.layout.crossDim
-                        childMainSize += child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+                        childMainSize += childStyle.computeMarginForAxis(mainAxis, availableInnerWidth)
                         childMainSizingMode = SizingMode.StretchFit
                         childCrossSizingMode = SizingMode.StretchFit
                         childMainSizingMode, childMainSize = constrainMaxSizeForMode(
@@ -1194,7 +1274,7 @@ def calculateLayoutImpl(
                         )
                         childWidth = childMainSize if isMainAxisRow else childCrossSize
                         childHeight = childMainSize if not isMainAxisRow else childCrossSize
-                        alignContent = node.style().alignContent()
+                        alignContent = style.alignContent()
                         crossAxisDoesNotGrow = alignContent != YGAlign.YGAlignStretch and isNodeFlexWrap
                         childWidthSizingMode = (
                             SizingMode.MaxContent if isnan(childWidth) or ((not isMainAxisRow) and crossAxisDoesNotGrow) else SizingMode.StretchFit
@@ -1219,18 +1299,18 @@ def calculateLayoutImpl(
                         )
                 else:
                     remainingCrossDim = containerCrossAxis - child.dimensionWithMargin(crossAxis, availableInnerWidth)
-                    if child.style().flexStartMarginIsAuto(crossAxis, direction) and child.style().flexEndMarginIsAuto(crossAxis, direction):
+                    if startMarginAuto and endMarginAuto:
                         leadingCrossDim += maxOrDefined(0.0, remainingCrossDim / 2)
-                    elif child.style().flexEndMarginIsAuto(crossAxis, direction):
+                    elif endMarginAuto:
                         pass
-                    elif child.style().flexStartMarginIsAuto(crossAxis, direction):
+                    elif startMarginAuto:
                         leadingCrossDim += maxOrDefined(0.0, remainingCrossDim)
                     elif alignItem == YGAlign.YGAlignCenter:
                         leadingCrossDim += remainingCrossDim / 2
                     elif alignItem not in (YGAlign.YGAlignFlexStart,):
                         leadingCrossDim += remainingCrossDim
                 child.setLayoutPosition(
-                    child.getLayout().position(flexStartEdge(crossAxis)) + totalLineCrossDim + leadingCrossDim,
+                    childLayout.position(flexStartEdge(crossAxis)) + totalLineCrossDim + leadingCrossDim,
                     flexStartEdge(crossAxis),
                 )
         appliedCrossGap = crossAxisGap if lineCount != 0 else 0.0
@@ -1289,10 +1369,11 @@ def calculateLayoutImpl(
             - paddingAndBorderAxisCross
         )
         remainingAlignContentDim = innerCrossDim - totalLineCrossDim
+        alignContent = style.alignContent()
         alignContentValue: YGAlign = (
-            node.style().alignContent()
+            alignContent
             if remainingAlignContentDim >= 0
-            else fallbackAlignment(node.style().alignContent())  # type: ignore[assignment]
+            else fallbackAlignment(alignContent)  # type: ignore[assignment]
         )
         if alignContentValue == YGAlign.YGAlignFlexEnd:
             currentLead += remainingAlignContentDim
@@ -1323,25 +1404,28 @@ def calculateLayoutImpl(
             while endIndex < len(layoutChildren):
                 child = layoutChildren[endIndex]
                 endIndex += 1
-                if child.style().display() == YGDisplay.YGDisplayNone:
+                childStyle = child.style()
+                if childStyle.display() == YGDisplay.YGDisplayNone:
                     continue
-                if child.style().positionType() != YGPositionType.YGPositionTypeAbsolute:
+                if childStyle.positionType() != YGPositionType.YGPositionTypeAbsolute:
+                    childLayout = child.getLayout()
                     if child.getLineIndex() != i:
                         endIndex -= 1
                         break
                     if child.isLayoutDimensionDefined(crossAxis):
                         lineHeight = maxOrDefined(
                             lineHeight,
-                            child.getLayout().measuredDimension(dimension(crossAxis))
-                            + child.style().computeMarginForAxis(crossAxis, availableInnerWidth),
+                            childLayout.measuredDimension(dimension(crossAxis))
+                            + childStyle.computeMarginForAxis(crossAxis, availableInnerWidth),
                         )
-                    if resolveChildAlignment(node, child) == YGAlign.YGAlignBaseline:
-                        ascent = calculateBaseline(child) + child.style().computeFlexStartMargin(
+                    childAlignment = resolveChildAlignment(node, child)
+                    if childAlignment == YGAlign.YGAlignBaseline:
+                        ascent = calculateBaseline(child) + childStyle.computeFlexStartMargin(
                             YGFlexDirection.YGFlexDirectionColumn, direction, availableInnerWidth
                         )
                         descent = (
-                            child.getLayout().measuredDimension(YGDimension.YGDimensionHeight)
-                            + child.style().computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, availableInnerWidth)
+                            childLayout.measuredDimension(YGDimension.YGDimensionHeight)
+                            + childStyle.computeMarginForAxis(YGFlexDirection.YGFlexDirectionColumn, availableInnerWidth)
                             - ascent
                         )
                         maxAscentForCurrentLine = maxOrDefined(maxAscentForCurrentLine, ascent)
@@ -1350,44 +1434,46 @@ def calculateLayoutImpl(
             currentLead += crossAxisGap if i != 0 else 0.0
             lineHeight += extraSpacePerLine
             for child in layoutChildren[startLineIndex:endIndex]:
-                if child.style().display() == YGDisplay.YGDisplayNone:
+                childStyle = child.style()
+                if childStyle.display() == YGDisplay.YGDisplayNone:
                     continue
-                if child.style().positionType() != YGPositionType.YGPositionTypeAbsolute:
+                if childStyle.positionType() != YGPositionType.YGPositionTypeAbsolute:
+                    childLayout = child.getLayout()
                     childAlignment = resolveChildAlignment(node, child)
                     if childAlignment == YGAlign.YGAlignFlexStart:
                         child.setLayoutPosition(
-                            currentLead + child.style().computeFlexStartPosition(crossAxis, direction, availableInnerWidth),
+                            currentLead + childStyle.computeFlexStartPosition(crossAxis, direction, availableInnerWidth),
                             flexStartEdge(crossAxis),
                         )
                     elif childAlignment == YGAlign.YGAlignFlexEnd:
                         child.setLayoutPosition(
                             currentLead
                             + lineHeight
-                            - child.style().computeFlexEndMargin(crossAxis, direction, availableInnerWidth)
-                            - child.getLayout().measuredDimension(dimension(crossAxis)),
+                            - childStyle.computeFlexEndMargin(crossAxis, direction, availableInnerWidth)
+                            - childLayout.measuredDimension(dimension(crossAxis)),
                             flexStartEdge(crossAxis),
                         )
                     elif childAlignment == YGAlign.YGAlignCenter:
-                        childHeight = child.getLayout().measuredDimension(dimension(crossAxis))
+                        childHeight = childLayout.measuredDimension(dimension(crossAxis))
                         child.setLayoutPosition(
                             currentLead + (lineHeight - childHeight) / 2,
                             flexStartEdge(crossAxis),
                         )
                     elif childAlignment == YGAlign.YGAlignStretch:
                         child.setLayoutPosition(
-                            currentLead + child.style().computeFlexStartMargin(crossAxis, direction, availableInnerWidth),
+                            currentLead + childStyle.computeFlexStartMargin(crossAxis, direction, availableInnerWidth),
                             flexStartEdge(crossAxis),
                         )
                         if not child.hasDefiniteLength(dimension(crossAxis), availableInnerCrossDim):
                             childWidth = (
-                                child.getLayout().measuredDimension(YGDimension.YGDimensionWidth)
-                                + child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+                                childLayout.measuredDimension(YGDimension.YGDimensionWidth)
+                                + childStyle.computeMarginForAxis(mainAxis, availableInnerWidth)
                                 if isMainAxisRow
                                 else leadPerLine + lineHeight
                             )
                             childHeight = (
-                                child.getLayout().measuredDimension(YGDimension.YGDimensionHeight)
-                                + child.style().computeMarginForAxis(crossAxis, availableInnerWidth)
+                                childLayout.measuredDimension(YGDimension.YGDimensionHeight)
+                                + childStyle.computeMarginForAxis(crossAxis, availableInnerWidth)
                                 if not isMainAxisRow
                                 else leadPerLine + lineHeight
                             )
@@ -1518,6 +1604,12 @@ def calculateLayoutImpl(
             )
 
 
+@cython.locals(
+    marginAxisRow=cython.double,
+    marginAxisColumn=cython.double,
+    measuredWidth=cython.double,
+    measuredHeight=cython.double,
+)
 def calculateLayoutInternal(
     node: Node,
     availableWidth: float,

@@ -7,31 +7,65 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
+from .._cython_compat import cython
 from ..algorithm.BoundAxis import boundAxisWithinMinAndMax
 from ..algorithm.FlexDirection import resolveDirection
 from ..numeric.FloatMath import float32
 from ..YGEnums import YGDirection, YGDisplay, YGPositionType, YGWrap
 
 
-@dataclass
 class FlexLineRunningLayout:
-    totalFlexGrowFactors: float = 0.0
-    totalFlexShrinkScaledFactors: float = 0.0
-    remainingFreeSpace: float = 0.0
-    mainDim: float = 0.0
-    crossDim: float = 0.0
+    __slots__ = (
+        "totalFlexGrowFactors",
+        "totalFlexShrinkScaledFactors",
+        "remainingFreeSpace",
+        "mainDim",
+        "crossDim",
+    )
+
+    def __init__(
+        self,
+        totalFlexGrowFactors: float = 0.0,
+        totalFlexShrinkScaledFactors: float = 0.0,
+        remainingFreeSpace: float = 0.0,
+        mainDim: float = 0.0,
+        crossDim: float = 0.0,
+    ) -> None:
+        self.totalFlexGrowFactors = totalFlexGrowFactors
+        self.totalFlexShrinkScaledFactors = totalFlexShrinkScaledFactors
+        self.remainingFreeSpace = remainingFreeSpace
+        self.mainDim = mainDim
+        self.crossDim = crossDim
 
 
-@dataclass
 class FlexLine:
-    itemsInFlow: list = field(default_factory=list)
-    sizeConsumed: float = 0.0
-    numberOfAutoMargins: int = 0
-    layout: FlexLineRunningLayout = field(default_factory=FlexLineRunningLayout)
+    __slots__ = ("itemsInFlow", "sizeConsumed", "numberOfAutoMargins", "layout")
+
+    def __init__(
+        self,
+        itemsInFlow: list | None = None,
+        sizeConsumed: float = 0.0,
+        numberOfAutoMargins: int = 0,
+        layout: FlexLineRunningLayout | None = None,
+    ) -> None:
+        self.itemsInFlow = [] if itemsInFlow is None else itemsInFlow
+        self.sizeConsumed = sizeConsumed
+        self.numberOfAutoMargins = numberOfAutoMargins
+        self.layout = FlexLineRunningLayout() if layout is None else layout
 
 
+@cython.locals(
+    sizeConsumed=cython.double,
+    totalFlexGrowFactors=cython.double,
+    totalFlexShrinkScaledFactors=cython.double,
+    numberOfAutoMargins=cython.int,
+    sizeConsumedIncludingMinConstraint=cython.double,
+    gap=cython.double,
+    childMarginMainAxis=cython.double,
+    childLeadingGapMainAxis=cython.double,
+    flexBasisWithMinAndMaxConstraints=cython.double,
+    isNodeFlexWrap=cython.bint,
+)
 def calculateFlexLine(
     node,
     ownerDirection: YGDirection,
@@ -51,27 +85,30 @@ def calculateFlexLine(
     firstElementInLine = None
     sizeConsumedIncludingMinConstraint = float32(0.0)
     direction = node.resolveDirection(ownerDirection)
-    mainAxis = resolveDirection(node.style().flexDirection(), direction)
-    isNodeFlexWrap = node.style().flexWrap() != YGWrap.YGWrapNoWrap
-    gap = node.style().computeGapForAxis(mainAxis, availableInnerMainDim)
+    nodeStyle = node.style()
+    mainAxis = resolveDirection(nodeStyle.flexDirection(), direction)
+    isNodeFlexWrap = nodeStyle.flexWrap() != YGWrap.YGWrapNoWrap
+    gap = nodeStyle.computeGapForAxis(mainAxis, availableInnerMainDim)
 
     for child in children[startIndex:]:
-        if child.style().display() == YGDisplay.YGDisplayNone or child.style().positionType() == YGPositionType.YGPositionTypeAbsolute:
+        childStyle = child.style()
+        if childStyle.display() == YGDisplay.YGDisplayNone or childStyle.positionType() == YGPositionType.YGPositionTypeAbsolute:
             continue
         if firstElementInLine is None:
             firstElementInLine = child
-        if child.style().flexStartMarginIsAuto(mainAxis, ownerDirection):
+        if childStyle.flexStartMarginIsAuto(mainAxis, ownerDirection):
             numberOfAutoMargins += 1
-        if child.style().flexEndMarginIsAuto(mainAxis, ownerDirection):
+        if childStyle.flexEndMarginIsAuto(mainAxis, ownerDirection):
             numberOfAutoMargins += 1
         child.setLineIndex(lineCount)
-        childMarginMainAxis = child.style().computeMarginForAxis(mainAxis, availableInnerWidth)
+        childMarginMainAxis = childStyle.computeMarginForAxis(mainAxis, availableInnerWidth)
         childLeadingGapMainAxis = 0.0 if child == firstElementInLine else gap
+        childLayout = child.getLayout()
         flexBasisWithMinAndMaxConstraints = boundAxisWithinMinAndMax(
             child,
             direction,
             mainAxis,
-            child.getLayout().computedFlexBasis,
+            childLayout.computedFlexBasis,
             mainAxisOwnerSize,
             ownerWidth,
         ).unwrap()
@@ -109,7 +146,7 @@ def calculateFlexLine(
                 totalFlexShrinkScaledFactors
                 + float32(
                     -child.resolveFlexShrink()
-                    * child.getLayout().computedFlexBasis.unwrap()
+                    * childLayout.computedFlexBasis.unwrap()
                 )
             )
         itemsInFlow.append(child)

@@ -1,3 +1,4 @@
+# cython: infer_types=False
 """
 Copyright (c) Meta Platforms, Inc. and affiliates.
 

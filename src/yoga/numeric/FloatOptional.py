@@ -1,3 +1,4 @@
+# cython: infer_types=False
 """
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
@@ -6,8 +7,6 @@ LICENSE file in the root directory of this source tree.
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass
 
 from .Comparison import (
     inexactEquals as inexactEqualsFloat,
@@ -20,15 +19,18 @@ from .Comparison import (
     maxOrDefined as maxOrDefinedFloat,
 )
 
-
-@dataclass(frozen=True)
 class FloatOptional:
-    value: float = float("nan")
+    def __init__(self, value=float("nan")) -> None:
+        self._value_box = (float(value),)
 
-    def unwrap(self) -> float:
+    @property
+    def value(self):
+        return self._value_box[0]
+
+    def unwrap(self):
         return self.value
 
-    def unwrapOrDefault(self, defaultValue: float) -> float:
+    def unwrapOrDefault(self, defaultValue):
         return defaultValue if self.isUndefined() else self.value
 
     def isUndefined(self) -> bool:
@@ -60,6 +62,9 @@ class FloatOptional:
 
     def __ge__(self, other: FloatOptional) -> bool:
         return self > other or self == other
+
+    def __repr__(self) -> str:
+        return f"FloatOptional(value={self.value!r})"
 
 def maxOrDefined(lhs: FloatOptional, rhs: FloatOptional) -> FloatOptional:
     return FloatOptional(maxOrDefinedFloat(lhs.unwrap(), rhs.unwrap()))

@@ -7,7 +7,6 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any
 
@@ -32,17 +31,38 @@ class LayoutPassReason(IntEnum):
     COUNT = 9
 
 
-@dataclass
 class LayoutData:
-    layouts: int = 0
-    measures: int = 0
-    maxMeasureCache: int = 0
-    cachedLayouts: int = 0
-    cachedMeasures: int = 0
-    measureCallbacks: int = 0
-    measureCallbackReasonsCount: list[int] = field(
-        default_factory=lambda: [0] * int(LayoutPassReason.COUNT)
+    __slots__ = (
+        "layouts",
+        "measures",
+        "maxMeasureCache",
+        "cachedLayouts",
+        "cachedMeasures",
+        "measureCallbacks",
+        "measureCallbackReasonsCount",
     )
+
+    def __init__(
+        self,
+        layouts: int = 0,
+        measures: int = 0,
+        maxMeasureCache: int = 0,
+        cachedLayouts: int = 0,
+        cachedMeasures: int = 0,
+        measureCallbacks: int = 0,
+        measureCallbackReasonsCount: list[int] | None = None,
+    ) -> None:
+        self.layouts = layouts
+        self.measures = measures
+        self.maxMeasureCache = maxMeasureCache
+        self.cachedLayouts = cachedLayouts
+        self.cachedMeasures = cachedMeasures
+        self.measureCallbacks = measureCallbacks
+        self.measureCallbackReasonsCount = (
+            [0] * int(LayoutPassReason.COUNT)
+            if measureCallbackReasonsCount is None
+            else measureCallbackReasonsCount
+        )
 
 
 def LayoutPassReasonToString(value: LayoutPassReason) -> str:
@@ -60,40 +80,66 @@ def LayoutPassReasonToString(value: LayoutPassReason) -> str:
     return names.get(value, "unknown")
 
 
-@dataclass(frozen=True)
 class EventData:
-    pass
+    __slots__ = ()
 
 
-@dataclass(frozen=True)
 class NodeAllocationData(EventData):
-    config: Any = None
+    __slots__ = ("config",)
+
+    def __init__(self, config: Any = None) -> None:
+        self.config = config
 
 
-@dataclass(frozen=True)
 class NodeDeallocationData(EventData):
-    config: Any = None
+    __slots__ = ("config",)
+
+    def __init__(self, config: Any = None) -> None:
+        self.config = config
 
 
-@dataclass(frozen=True)
 class LayoutPassEndData(EventData):
-    layoutData: LayoutData | None = None
+    __slots__ = ("layoutData",)
+
+    def __init__(self, layoutData: LayoutData | None = None) -> None:
+        self.layoutData = layoutData
 
 
-@dataclass(frozen=True)
 class MeasureCallbackEndData(EventData):
-    width: float
-    widthMeasureMode: Any
-    height: float
-    heightMeasureMode: Any
-    measuredWidth: float
-    measuredHeight: float
-    reason: LayoutPassReason
+    __slots__ = (
+        "width",
+        "widthMeasureMode",
+        "height",
+        "heightMeasureMode",
+        "measuredWidth",
+        "measuredHeight",
+        "reason",
+    )
+
+    def __init__(
+        self,
+        width: float,
+        widthMeasureMode: Any,
+        height: float,
+        heightMeasureMode: Any,
+        measuredWidth: float,
+        measuredHeight: float,
+        reason: LayoutPassReason,
+    ) -> None:
+        self.width = width
+        self.widthMeasureMode = widthMeasureMode
+        self.height = height
+        self.heightMeasureMode = heightMeasureMode
+        self.measuredWidth = measuredWidth
+        self.measuredHeight = measuredHeight
+        self.reason = reason
 
 
-@dataclass(frozen=True)
 class NodeLayoutData(EventData):
-    layoutType: LayoutType
+    __slots__ = ("layoutType",)
+
+    def __init__(self, layoutType: LayoutType) -> None:
+        self.layoutType = layoutType
 
 
 class Event:
