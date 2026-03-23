@@ -7,7 +7,7 @@ LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..numeric.Comparison import isinf, isUndefined
 from ..numeric.FloatMath import float32
@@ -19,7 +19,7 @@ from ..YGValue import YGValue
 
 @dataclass(frozen=True)
 class StyleLength:
-    value_: FloatOptional = FloatOptional()
+    value_: FloatOptional = field(default_factory=FloatOptional)
     unit_: YGUnit = YGUnit.YGUnitUndefined
 
     @staticmethod
